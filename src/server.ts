@@ -8,6 +8,45 @@ async function loadEvents(): Promise<Event[]> {
 }
 
 const server = createServer(async (req, res) => {
+    if (req.method === "POST" && req.url === "/events") {
+        let body = "";
+
+        req.on("data", (chunk) => {
+            body += chunk;
+        });
+        req.on("end", () => {
+            try {
+                const data = JSON.parse(body);
+                if (
+                    typeof data !== "object" ||
+                    data === null ||
+                    Array.isArray(data) ||
+                    typeof data.id !== "string" ||
+                    typeof data.title !== "string" ||
+                    typeof data.description !== "string" ||
+                    (typeof data.venue !== "string" && data.venue !== null) ||
+                    typeof data.startsAt !== "string" ||
+                    typeof data.capacity !== "number" ||
+                    typeof data.priceCents !== "number" ||
+                    typeof data.organizerId !== "string" ||
+                    typeof data.createdAt !== "string"
+                ) {
+                    res.writeHead(400, { "content-type": "application/json" });
+                    res.end(JSON.stringify({ error: "Bad Request" }));
+                    return;
+                }
+                console.log(data);
+                res.writeHead(200, { "content-type": "application/json" });
+                res.end(JSON.stringify({ status: "success", data }));
+            } catch (err) {
+                console.error(err);
+                res.writeHead(400, { "content-type": "application/json" });
+                res.end(JSON.stringify({ error: "Bad Request" }));
+                // should we write bad request just to align with the error 400 above or invalid json?
+            }
+        });
+        return;
+    }
     if (req.method === 'GET' && req.url === '/health') {
         res.writeHead(200, { "content-type": "application/json" });
         res.end(JSON.stringify({ status: "healthy", timestamp: process.uptime() }))
