@@ -4,10 +4,9 @@ export type BookingStatus = "CONFIRMED" | "CANCELLED" | "WAITLISTED";
 export interface User {
     id: string;
     email: string;
-    passwordHash: string;
     name: string;
     role: Role;
-    createdAt: Date;
+    createdAt: string;
 }
 export interface Event {
     id: string;
@@ -18,13 +17,14 @@ export interface Event {
     capacity: number;
     priceCents: number;
     organizerId: string;
-    createdAt: Date;
+    createdAt: string;
 }
 export interface Booking {
     id: string;
     userId: string;
     eventId: string;
     status: BookingStatus;
+    createdAt: string;
 }
 export function findById<T extends { id: string }>(
     rows: T[],
