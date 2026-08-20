@@ -5,7 +5,7 @@ import type { CreateBookingInput } from "./bookings.schema.ts";
 
 export function createBookingHandler(req: Request, res: Response) {
     const { eventId } = req.body as CreateBookingInput;
-    const currentUserId = "temp-user-id"; // Hard-coded current user as per spec
+    const currentUserId = (req.headers["x-user-id"] as string) || "temp-user-id";
 
     const booking = createBooking(eventId, currentUserId);
     res.status(201).json(booking);

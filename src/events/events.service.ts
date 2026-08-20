@@ -16,9 +16,40 @@ export function createEvent(input: CreateEventInput): Event {
     return event;
 }
 
-export function listEvents(_query: EventQuery = {}): Event[] {
-    return Array.from(events.values());
+export function listEvents(query: EventQuery = {}) {
+    const { page = 1, limit = 20, venue, from, to, sort } = query;
+    let filteredEvents = Array.from(events.values());
 
+    if (venue) {
+        filteredEvents = filteredEvents.filter(e => e.venue === venue);
+    }
+
+    if (from) {
+        filteredEvents = filteredEvents.filter(e => e.startsAt >= from);
+    }
+
+    if (to) {
+        filteredEvents = filteredEvents.filter(e => e.startsAt <= to);
+    }
+
+    if (sort === "startsAt:asc") {
+        filteredEvents.sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime());
+    } else if (sort === "startsAt:desc") {
+        filteredEvents.sort((a, b) => b.startsAt.getTime() - a.startsAt.getTime());
+    }
+
+    const total = filteredEvents.length;
+
+    const startIndex = (page - 1) * limit;
+    const endIndex = startIndex + limit;
+    const data = filteredEvents.slice(startIndex, endIndex);
+
+    return {
+        data,
+        page,
+        limit,
+        total,
+    };
 }
 
 export function getEvent(id: string): Event | undefined {

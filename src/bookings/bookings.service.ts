@@ -25,15 +25,13 @@ export function createBooking(eventId: string, userId: string): Booking {
         }
     }
 
-    if (confirmedCount >= event.capacity) {
-        throw new HttpError(409, "Event is at full capacity");
-    }
+    const bookingStatus = confirmedCount >= event.capacity ? "WAITLISTED" : "CONFIRMED";
 
     const booking: Booking = {
         id: crypto.randomUUID(),
         userId,
         eventId,
-        status: "CONFIRMED",
+        status: bookingStatus,
         createdAt: new Date().toISOString(),
     };
 

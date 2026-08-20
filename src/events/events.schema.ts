@@ -20,6 +20,7 @@ export const EventQuerySchema = z.object({
     venue: z.string().optional(),
     from: z.coerce.date().optional(),
     to: z.coerce.date().optional(),
+    sort: z.enum(["startsAt:asc", "startsAt:desc"]).optional(),
 });
 
 export type EventQuery = z.infer<typeof EventQuerySchema>;
