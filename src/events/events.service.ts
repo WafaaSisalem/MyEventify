@@ -1,7 +1,6 @@
 import type { Event } from "../domain.ts";
 import type { CreateEventInput, UpdateEventInput, EventQuery } from "./events.schema.ts";
-
-const events = new Map<string, Event>();
+import * as eventsRepo from "./events.repository.ts";
 
 export function createEvent(input: CreateEventInput): Event {
     const event: Event = {
@@ -11,14 +10,12 @@ export function createEvent(input: CreateEventInput): Event {
         ...input,
     };
 
-    events.set(event.id, event);
-
-    return event;
+    return eventsRepo.save(event);
 }
 
 export function listEvents(query: EventQuery = {}) {
     const { page = 1, limit = 20, venue, from, to, sort } = query;
-    let filteredEvents = Array.from(events.values());
+    let filteredEvents = eventsRepo.findAll();
 
     if (venue) {
         filteredEvents = filteredEvents.filter(e => e.venue === venue);
@@ -53,14 +50,14 @@ export function listEvents(query: EventQuery = {}) {
 }
 
 export function getEvent(id: string): Event | undefined {
-    return events.get(id);
+    return eventsRepo.findById(id);
 }
 
 export function updateEvent(
     id: string,
     input: UpdateEventInput,
 ): Event | undefined {
-    const event = events.get(id);
+    const event = eventsRepo.findById(id);
 
     if (!event) {
         return undefined;
@@ -68,9 +65,9 @@ export function updateEvent(
 
     Object.assign(event, input);
 
-    return event;
+    return eventsRepo.update(event);
 }
 
 export function deleteEvent(id: string): boolean {
-    return events.delete(id);
+    return eventsRepo.remove(id);
 }

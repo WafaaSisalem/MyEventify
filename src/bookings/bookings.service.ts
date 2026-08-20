@@ -1,8 +1,7 @@
 import type { Booking } from "../domain.ts";
 import { getEvent } from "../events/events.service.ts";
 import { HttpError } from "../errors/http-error.ts";
-
-const bookings = new Map<string, Booking>();
+import * as bookingsRepo from "./bookings.repository.ts";
 
 export function createBooking(eventId: string, userId: string): Booking {
     const event = getEvent(eventId);
@@ -11,20 +10,13 @@ export function createBooking(eventId: string, userId: string): Booking {
     }
 
     // Check duplicate
-    for (const booking of bookings.values()) {
-        if (booking.userId === userId && booking.eventId === eventId) {
-            throw new HttpError(409, "User already has a booking for this event");
-        }
+    const existingBooking = bookingsRepo.findByUserAndEvent(userId, eventId);
+    if (existingBooking) {
+        throw new HttpError(409, "User already has a booking for this event");
     }
 
     // Check capacity
-    let confirmedCount = 0;
-    for (const booking of bookings.values()) {
-        if (booking.eventId === eventId && booking.status === "CONFIRMED") {
-            confirmedCount++;
-        }
-    }
-
+    const confirmedCount = bookingsRepo.countConfirmedByEvent(eventId);
     const bookingStatus = confirmedCount >= event.capacity ? "WAITLISTED" : "CONFIRMED";
 
     const booking: Booking = {
@@ -35,21 +27,19 @@ export function createBooking(eventId: string, userId: string): Booking {
         createdAt: new Date().toISOString(),
     };
 
-    bookings.set(booking.id, booking);
-
-    return booking;
+    return bookingsRepo.save(booking);
 }
 
 export function getBooking(id: string): Booking | undefined {
-    return bookings.get(id);
+    return bookingsRepo.findById(id);
 }
 
 export function deleteBooking(id: string): Booking | undefined {
-    const booking = bookings.get(id);
+    const booking = bookingsRepo.findById(id);
     if (!booking) {
         return undefined;
     }
 
     booking.status = "CANCELLED";
-    return booking;
+    return bookingsRepo.update(booking);
 }
