@@ -30,3 +30,7 @@
 - [x] Ensure all 400/404 cases throw `HttpError`.
 - [x] Verify `DELETE` operations use `204` with no body (except booking cancellation which returns 200).
 - [x] Ensure all body inputs pass through `validate` and all query inputs through `validateQuery`.
+
+## 5. Stretch Goals
+- [x] At capacity → create the booking as WAITLISTED instead of returning 409.
+- [x] Add `?sort=startsAt:asc|desc` to the events list.
