@@ -1,60 +1,56 @@
 import { createServer } from 'node:http';
 import type { Event } from "./domain.ts";
-const events: Event[] = [
-    {
-        id: "evt-1",
-        title: "JS 101",
-        description: "JavaScript from zero ceremony",
-        venue: "Room 4",
-        startsAt: new Date("2026-09-14T18:00:00Z"),
-        capacity: 30,
-        priceCents: 0,
-        organizerId: "usr-1",
-        createdAt: new Date("2026-08-01T09:00:00Z"),
-    },
-    {
-        id: "evt-2",
-        title: "TS at Work",
-        description: "Types that earn their keep",
-        venue: null,
-        startsAt: new Date("2026-09-21T18:00:00Z"),
-        capacity: 80,
-        priceCents: 1500,
-        organizerId: "usr-1",
-        createdAt: new Date("2026-08-01T09:05:00Z"),
-    },
-    {
-        id: "evt-3",
-        title: "Node Deep Dive",
-        description: "The event loop, for real",
-        venue: "Main Hall",
-        startsAt: new Date("2026-10-02T18:00:00Z"),
-        capacity: 25,
-        priceCents: 2500,
-        organizerId: "usr-2",
-        createdAt: new Date("2026-08-02T10:00:00Z"),
-    },
-    {
-        id: "evt-4",
-        title: "API Design Live",
-        description: "Endpoints designed in the open",
-        venue: "Main Hall",
-        startsAt: new Date("2026-11-20T18:00:00Z"),
-        capacity: 125,
-        priceCents: 0,
-        organizerId: "usr-2",
-        createdAt: new Date("2026-08-03T11:00:00Z"),
-    },
-];
-const server = createServer((req, res) => {
+import { readFile } from "node:fs/promises";
+import { findById } from './domain.ts';
+async function loadEvents(): Promise<Event[]> {
+    const file = await readFile("data/events.json", "utf-8");
+    return JSON.parse(file);
+}
+
+const server = createServer(async (req, res) => {
     if (req.method === 'GET' && req.url === '/health') {
         res.writeHead(200, { "content-type": "application/json" });
         res.end(JSON.stringify({ status: "healthy", timestamp: process.uptime() }))
         return;
     }
     if (req.method === 'GET' && req.url === '/events') {
-        res.writeHead(200, { "content-type": "application/json" });
-        res.end(JSON.stringify(events));
+        try {
+            const events = await loadEvents();
+
+            res.writeHead(200, { "content-type": "application/json" });
+
+            res.end(JSON.stringify(events));
+        } catch (err) {
+            console.error(err);
+            res.writeHead(500, { "content-type": "application/json" });
+            res.end(JSON.stringify({ error: "Internal Server Error" }));
+        }
+        return;
+    }
+    if (req.method === "GET" && req.url?.startsWith("/events/")) {
+        try {
+            const events = await loadEvents();
+
+            const id = req.url.split("/")[2];
+            if (typeof id === "string") {
+                const event = findById(events, id);
+
+                if (!event) {
+                    res.writeHead(404, { "content-type": "application/json" });
+                    res.end(JSON.stringify({ error: "Event not found" }));
+                    return;
+                }
+
+                res.writeHead(200, { "content-type": "application/json" });
+                res.end(JSON.stringify(event));
+            }
+        } catch (err) {
+            console.error(err);
+
+            res.writeHead(500, { "content-type": "application/json" });
+            res.end(JSON.stringify({ error: "Internal Server Error" }));
+        }
+
         return;
     }
     res.writeHead(404, { "content-type": "application/json" });
