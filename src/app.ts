@@ -2,6 +2,7 @@ import express from "express";
 export { app };
 import { HttpError } from "./errors/http-error.ts";
 import eventsRouter from "./events/events.routes.ts";
+import bookingsRouter from "./bookings/bookings.routes.ts";
 import {
     type Request,
     type Response,
@@ -15,7 +16,8 @@ app.use((req, res, next) => {
     next();
 });
 
-app.use("/v1", eventsRouter);
+app.use("/v1/events", eventsRouter);
+app.use("/v1/bookings", bookingsRouter);
 app.get("/health", (req, res) => {
     res.status(200).json({ status: "healthy", timestamp: process.uptime() });
 });

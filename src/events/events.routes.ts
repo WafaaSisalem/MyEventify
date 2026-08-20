@@ -13,13 +13,13 @@ import { CreateEventSchema, UpdateEventSchema, EventQuerySchema } from "./events
 const router = Router();
 
 router.post(
-    "/events",
+    "/",
     validate(CreateEventSchema),
     createEventHandler,
 );
-router.get("/events", validateQuery(EventQuerySchema), listEventsHandler);
-router.get("/events/:id", getEventHandler);
-router.patch("/events/:id", validate(UpdateEventSchema), updateEventHandler);
-router.delete("/events/:id", deleteEventHandler);
+router.get("/", validateQuery(EventQuerySchema), listEventsHandler);
+router.get("/:id", getEventHandler);
+router.patch("/:id", validate(UpdateEventSchema), updateEventHandler);
+router.delete("/:id", deleteEventHandler);
 
 export default router;
