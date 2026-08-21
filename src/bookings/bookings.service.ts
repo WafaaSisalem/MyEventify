@@ -3,8 +3,8 @@ import { getEvent } from "../events/events.service.ts";
 import { HttpError } from "../errors/http-error.ts";
 import * as bookingsRepo from "./bookings.repository.ts";
 
-export function createBooking(eventId: string, userId: string): Booking {
-    const event = getEvent(eventId);
+export async function createBooking(eventId: string, userId: string): Promise<Booking> {
+    const event = await getEvent(eventId);
     if (!event) {
         throw new HttpError(404, "Event not found");
     }

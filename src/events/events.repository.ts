@@ -1,25 +1,42 @@
-import type { Event } from "../domain.ts";
+import { prisma } from "../infra/db.ts";
+import type { Event } from "../generated/prisma/client.ts";
 
-const events = new Map<string, Event>();
-
-export function findAll(): Event[] {
-    return Array.from(events.values());
+export async function findAll(): Promise<Event[]> {
+    return prisma.event.findMany();
 }
 
-export function findById(id: string): Event | undefined {
-    return events.get(id);
+export async function findById(id: string): Promise<Event | null> {
+    return prisma.event.findUnique({ where: { id } });
 }
 
-export function save(event: Event): Event {
-    events.set(event.id, event);
-    return event;
+export async function save(data: {
+    title: string;
+    description: string;
+    venue: string;
+    startsAt: Date;
+    capacity: number;
+    priceCents: number;
+    organizerId: string;
+}) {
+    return prisma.event.create({ data });
 }
 
-export function update(event: Event): Event {
-    events.set(event.id, event);
-    return event;
+export async function update(id: string, data: {
+    title?: string;
+    description?: string;
+    venue?: string;
+    startsAt?: Date;
+    capacity?: number;
+    priceCents?: number;
+}) {
+    return prisma.event.update({ where: { id }, data });
 }
 
-export function remove(id: string): boolean {
-    return events.delete(id);
+export async function remove(id: string): Promise<boolean> {
+    try {
+        await prisma.event.delete({ where: { id } });
+        return true;
+    } catch {
+        return false;
+    }
 }
