@@ -56,4 +56,5 @@ model Booking {
   event Event @relation(fields: [eventId], references: [id])
 
   @@unique([userId, eventId])
+  @@index([userId])
 }
