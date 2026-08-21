@@ -1,21 +1,16 @@
-import type { Event } from "../domain.ts";
 import type { CreateEventInput, UpdateEventInput, EventQuery } from "./events.schema.ts";
 import * as eventsRepo from "./events.repository.ts";
 
-export function createEvent(input: CreateEventInput): Event {
-    const event: Event = {
-        id: crypto.randomUUID(),
-        createdAt: new Date().toISOString(),
+export async function createEvent(input: CreateEventInput) {
+    return eventsRepo.save({
         organizerId: "temp-organizer-id",
         ...input,
-    };
-
-    return eventsRepo.save(event);
+    });
 }
 
-export function listEvents(query: EventQuery = {}) {
+export async function listEvents(query: EventQuery = {}) {
     const { page = 1, limit = 20, venue, from, to, sort } = query;
-    let filteredEvents = eventsRepo.findAll();
+    let filteredEvents = await eventsRepo.findAll();
 
     if (venue) {
         filteredEvents = filteredEvents.filter(e => e.venue === venue);
@@ -49,25 +44,23 @@ export function listEvents(query: EventQuery = {}) {
     };
 }
 
-export function getEvent(id: string): Event | undefined {
+export async function getEvent(id: string) {
     return eventsRepo.findById(id);
 }
 
-export function updateEvent(
+export async function updateEvent(
     id: string,
     input: UpdateEventInput,
-): Event | undefined {
-    const event = eventsRepo.findById(id);
+) {
+    const event = await eventsRepo.findById(id);
 
     if (!event) {
-        return undefined;
+        return null;
     }
 
-    Object.assign(event, input);
-
-    return eventsRepo.update(event);
+    return eventsRepo.update(id, input);
 }
 
-export function deleteEvent(id: string): boolean {
+export async function deleteEvent(id: string) {
     return eventsRepo.remove(id);
 }
