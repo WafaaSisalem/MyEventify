@@ -10,51 +10,77 @@ export async function createBooking(eventId: string, userId: string): Promise<Bo
         throw new HttpError(404, "Event not found");
     }
 
-    try {
-        return await prisma.$transaction(async (tx) => {
-            const confirmedCount = await tx.booking.count({
-                where: { eventId, status: "CONFIRMED" }
-            });
+    const MAX_RETRIES = 3;
+    let attempt = 0;
 
-            if (confirmedCount >= event.capacity) {
-                throw new HttpError(409, "Event is full");
-            }
-
-            const existingBooking = await tx.booking.findUnique({
-                where: { userId_eventId: { userId, eventId } }
-            });
-
-            if (existingBooking) {
-                if (existingBooking.status === "CANCELLED") {
-                    return await tx.booking.update({
-                        where: { id: existingBooking.id },
-                        data: { status: "CONFIRMED" }
-                    });
-                } else if (existingBooking.status === "WAITLISTED") {
-                    throw new HttpError(409, "User is already waitlisted");
-                }
-
-                // If CONFIRMED, attempt to create it anyway to trigger P2002 unique constraint violation
-                return await tx.booking.create({
-                    data: { userId, eventId, status: "CONFIRMED" }
+    while (attempt < MAX_RETRIES) {
+        try {
+            return await prisma.$transaction(async (tx) => {
+                const confirmedCount = await tx.booking.count({
+                    where: { eventId, status: "CONFIRMED" }
                 });
-            }
 
-            // No existing row
-            return await tx.booking.create({
-                data: {
-                    userId,
-                    eventId,
-                    status: "CONFIRMED"
+                const isFull = confirmedCount >= event.capacity;
+
+                const existingBooking = await tx.booking.findUnique({
+                    where: { userId_eventId: { userId, eventId } }
+                });
+
+                if (existingBooking) {
+                    if (existingBooking.status === "CANCELLED") {
+                        if (isFull) {
+                            throw new HttpError(409, "Event is full");
+                        }
+                        return await tx.booking.update({
+                            where: { id: existingBooking.id },
+                            data: { status: "CONFIRMED" }
+                        });
+                    } else if (existingBooking.status === "WAITLISTED") {
+                        throw new HttpError(409, "User is already waitlisted");
+                    }
+
+                    // If CONFIRMED, attempt to create it anyway to trigger P2002 unique constraint violation
+                    return await tx.booking.create({
+                        data: { userId, eventId, status: "CONFIRMED" }
+                    });
                 }
-            });
-        }, { isolationLevel: 'Serializable' });
-    } catch (error: any) {
-        if (error.code === 'P2002') {
-            throw new HttpError(409, "Duplicate booking");
+
+                // No existing row
+                if (isFull) {
+                    return await tx.booking.create({
+                        data: {
+                            userId,
+                            eventId,
+                            status: "WAITLISTED"
+                        }
+                    });
+                }
+
+                return await tx.booking.create({
+                    data: {
+                        userId,
+                        eventId,
+                        status: "CONFIRMED"
+                    }
+                });
+            }, { isolationLevel: 'Serializable' });
+        } catch (error: unknown) {
+            const err = error as { code?: string };
+            if (err.code === 'P2002') {
+                throw new HttpError(409, "Duplicate booking");
+            }
+            if (err.code === 'P2034') {
+                attempt++;
+                if (attempt >= MAX_RETRIES) {
+                    throw error;
+                }
+                continue;
+            }
+            throw error;
         }
-        throw error;
     }
+
+    throw new Error("Transaction failed after max retries");
 }
 
 export async function getBooking(id: string): Promise<Booking | null> {
