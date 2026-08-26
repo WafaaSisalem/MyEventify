@@ -21,3 +21,13 @@ export async function create(data: {
     },
   });
 }
+
+export async function storeRefreshToken(tokenHash: string, userId: string, expiresAt: Date) {
+  return prisma.refreshToken.create({
+    data: {
+      tokenHash,
+      userId,
+      expiresAt,
+    },
+  });
+}

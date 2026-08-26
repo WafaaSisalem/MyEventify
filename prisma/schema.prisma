@@ -29,6 +29,16 @@ model User {
 
   events    Event[]
   bookings  Booking[]
+  refreshTokens RefreshToken[]
+}
+
+model RefreshToken {
+  tokenHash String   @id
+  userId    String   @db.Uuid
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Event {
