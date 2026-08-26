@@ -1,5 +1,5 @@
 import { HttpError, UnauthorizedError } from '../errors/http-error.ts';
-import { hashPassword, verifyPassword } from './auth.utils.ts';
+import { hashPassword, verifyPassword, generateRefreshToken } from './auth.utils.ts';
 import * as authRepo from './auth.repository.ts';
 import jwt from 'jsonwebtoken';
 import { config } from '../config.ts';
@@ -40,11 +40,41 @@ export async function login(email: string, password: string) {
     { algorithm: 'HS256', expiresIn: '15m' }
   );
 
-  const rawRefreshToken = crypto.randomBytes(32).toString('base64url');
-  const hashedRefreshToken = crypto.createHash('sha256').update(rawRefreshToken).digest('hex');
-  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+  const { rawToken, tokenHash, expiresAt } = generateRefreshToken();
 
-  await authRepo.storeRefreshToken(hashedRefreshToken, user.id, expiresAt);
+  await authRepo.storeRefreshToken(tokenHash, user.id, expiresAt);
 
-  return { accessToken, refreshToken: rawRefreshToken };
+  return { accessToken, refreshToken: rawToken };
 }
+
+export async function refresh(rawRefreshToken: string) {
+  const hashedRefreshToken = crypto.createHash('sha256').update(rawRefreshToken).digest('hex');
+  const storedToken = await authRepo.findRefreshToken(hashedRefreshToken);
+
+  if (!storedToken) {
+    throw new UnauthorizedError('Invalid or expired refresh token');
+  }
+
+  // Delete the old token immediately (consumed/rotated)
+  await authRepo.deleteRefreshToken(hashedRefreshToken);
+
+  // Check expiration
+  if (storedToken.expiresAt < new Date()) {
+    throw new UnauthorizedError('Invalid or expired refresh token');
+  }
+
+  // Issue new access token
+  const accessToken = jwt.sign(
+    { sub: storedToken.user.id, role: storedToken.user.role },
+    config.JWT_ACCESS_SECRET,
+    { algorithm: 'HS256', expiresIn: '15m' }
+  );
+
+  // Issue new refresh token
+  const { rawToken, tokenHash, expiresAt } = generateRefreshToken();
+
+  await authRepo.storeRefreshToken(tokenHash, storedToken.user.id, expiresAt);
+
+  return { accessToken, refreshToken: rawToken };
+}
+

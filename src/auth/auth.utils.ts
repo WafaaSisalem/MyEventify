@@ -1,4 +1,5 @@
 import * as argon2 from 'argon2';
+import crypto from 'node:crypto';
 
 const OPTS: argon2.HashOptions = {
   type: argon2.argon2id,
@@ -17,4 +18,11 @@ export async function verifyPassword(hash: string, plain: string): Promise<boole
   } catch {
     return false;
   }
+}
+
+export function generateRefreshToken() {
+  const rawToken = crypto.randomBytes(32).toString('base64url');
+  const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+  return { rawToken, tokenHash, expiresAt };
 }

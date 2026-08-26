@@ -31,3 +31,16 @@ export async function storeRefreshToken(tokenHash: string, userId: string, expir
     },
   });
 }
+
+export async function findRefreshToken(tokenHash: string) {
+  return prisma.refreshToken.findUnique({
+    where: { tokenHash },
+    include: { user: true },
+  });
+}
+
+export async function deleteRefreshToken(tokenHash: string) {
+  return prisma.refreshToken.deleteMany({
+    where: { tokenHash },
+  });
+}
