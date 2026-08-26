@@ -1,7 +1,14 @@
 import { prisma } from "../src/infra/db.ts";
+import * as argon2 from "argon2";
 
 async function main() {
     console.log("Seeding database...");
+    const dummyPassword = await argon2.hash("password123", {
+        type: argon2.argon2id,
+        memoryCost: 19456,
+        timeCost: 2,
+        parallelism: 1,
+    });
 
     // 1. Upsert base users (ORGANIZER, ADMIN, ATTENDEE)
     // UUIDv7 placeholders for deterministic seeding
@@ -12,17 +19,17 @@ async function main() {
     await prisma.user.upsert({
         where: { email: "org@example.com" },
         update: {},
-        create: { id: organizerId, email: "org@example.com", name: "Organizer User", role: "ORGANIZER" }
+        create: { id: organizerId, email: "org@example.com", name: "Organizer User", role: "ORGANIZER", password: dummyPassword }
     });
     await prisma.user.upsert({
         where: { email: "admin@example.com" },
         update: {},
-        create: { id: adminId, email: "admin@example.com", name: "Admin User", role: "ADMIN" }
+        create: { id: adminId, email: "admin@example.com", name: "Admin User", role: "ADMIN", password: dummyPassword }
     });
     await prisma.user.upsert({
         where: { email: "attendee@example.com" },
         update: {},
-        create: { id: attendeeId, email: "attendee@example.com", name: "Standard Attendee", role: "ATTENDEE" }
+        create: { id: attendeeId, email: "attendee@example.com", name: "Standard Attendee", role: "ATTENDEE", password: dummyPassword }
     });
 
     // 2. Upsert 20 additional test users for concurrency tests
@@ -31,13 +38,13 @@ async function main() {
         await prisma.user.upsert({
             where: { email: `testuser${i}@example.com` },
             update: {},
-            create: { id, email: `testuser${i}@example.com`, name: `Concurrency Tester ${i}`, role: "ATTENDEE" }
+            create: { id, email: `testuser${i}@example.com`, name: `Concurrency Tester ${i}`, role: "ATTENDEE", password: dummyPassword }
         });
     }
 
     // 3. Upsert 5 Events
     const concurrencyEventId = "0194bc00-0000-7000-0000-000000000201";
-    
+
     // The capacity: 5 event specifically for testing
     await prisma.event.upsert({
         where: { id: concurrencyEventId },
