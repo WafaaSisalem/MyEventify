@@ -20,9 +20,13 @@ export async function verifyPassword(hash: string, plain: string): Promise<boole
   }
 }
 
+export function sha256(data: string): string {
+  return crypto.createHash('sha256').update(data).digest('hex');
+}
+
 export function generateRefreshToken() {
   const rawToken = crypto.randomBytes(32).toString('base64url');
-  const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+  const tokenHash = sha256(rawToken);
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
   return { rawToken, tokenHash, expiresAt };
 }

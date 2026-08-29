@@ -39,8 +39,26 @@ export async function findRefreshToken(tokenHash: string) {
   });
 }
 
-export async function deleteRefreshToken(tokenHash: string) {
-  return prisma.refreshToken.deleteMany({
-    where: { tokenHash },
+export async function rotateRefreshToken(oldTokenHash: string, newTokenHash: string, userId: string, expiresAt: Date) {
+  return prisma.$transaction(async (tx) => {
+    // 1. Create the new token
+    const newRow = await tx.refreshToken.create({
+      data: {
+        tokenHash: newTokenHash,
+        userId,
+        expiresAt,
+      }
+    });
+
+    // 2. Revoke the old token and link to the new one
+    await tx.refreshToken.update({
+      where: { tokenHash: oldTokenHash },
+      data: {
+        revokedAt: new Date(),
+        replacedById: newRow.id,
+      }
+    });
+
+    return newRow;
   });
 }

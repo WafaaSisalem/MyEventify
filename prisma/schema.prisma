@@ -33,12 +33,19 @@ model User {
 }
 
 model RefreshToken {
-  tokenHash String   @id
-  userId    String   @db.Uuid
-  expiresAt DateTime
-  createdAt DateTime @default(now())
+  id           String    @id @default(uuid(7)) @db.Uuid
+  tokenHash    String    @unique
+  userId       String    @db.Uuid
+  expiresAt    DateTime
+  revokedAt    DateTime?
+  replacedById String?   @unique @db.Uuid
+  createdAt    DateTime  @default(now())
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         User          @relation(fields: [userId], references: [id])
+  replacedBy   RefreshToken? @relation("RotationChain", fields: [replacedById], references: [id])
+  replaces     RefreshToken? @relation("RotationChain")
+
+  @@index([userId])
 }
 
 model Event {
