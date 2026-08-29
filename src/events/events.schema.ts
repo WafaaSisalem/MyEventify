@@ -17,7 +17,7 @@ export type UpdateEventInput = z.infer<typeof UpdateEventSchema>;
 export const EventQuerySchema = z.object({
     page: z.coerce.number().int().min(1).optional(),
     limit: z.coerce.number().int().min(1).max(100).optional(),
-    venue: z.string().optional(),
+    venue: z.string().max(120).optional(),
     from: z.coerce.date().optional(),
     to: z.coerce.date().optional(),
     sort: z.enum(["startsAt:asc", "startsAt:desc"]).optional(),

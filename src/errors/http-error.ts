@@ -12,3 +12,16 @@ export class HttpError extends Error {
         this.details = details;
     }
 }
+
+export class UnauthorizedError extends HttpError {
+    constructor(message = 'Unauthorized', options?: { cause?: unknown }) {
+        super(401, message);
+        this.cause = options?.cause;
+    }
+}
+
+export class ForbiddenError extends HttpError {
+    constructor(message = 'Forbidden') {
+        super(403, message);
+    }
+}
