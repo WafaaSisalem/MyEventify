@@ -1,67 +1,131 @@
-# Session 3 Homework — Bookings That Survive a Restart
+# Session 4 Homework — Authentication & Security
 
-
-## Task 1: Finish the repository swap (Events)
-> Events are already on Prisma. Verify completeness.
-
-- [x] Confirm no in-memory stores remain anywhere (`grep` for `new Map`)
-- [x] Verify `listEvents` pagination/filtering/sorting works against DB
-- [x] Clean up: remove `domain.ts` import from events files (already done)
-- [x] Test fresh-clone flow: `docker compose up -d` → `npx prisma migrate dev` → `npm run dev`
-
-## Task 2: Transactional bookings
-> Replace in-memory bookings with Prisma + `$transaction` with Serializable isolation.
-
-### 2a. Bookings repository → Prisma
-- [x] Rewrite `bookings.repository.ts` with Prisma ops: `findById`, `findByUserAndEvent`, `countConfirmedByEvent`, `create`, `update`
-- [x] Remove in-memory `Map` and `domain.ts` import
-
-### 2b. Transactional `createBooking` in service
-- [x] Write `createBooking` using `prisma.$transaction` with `isolationLevel: Serializable`
-- [x] Inside the transaction, use `tx` (never `prisma`) for all reads/writes
-- [x] Capacity check: `tx.booking.count({ where: { eventId, status: 'CONFIRMED' } })`
-- [x] Rebooking logic — lookup existing with `tx.booking.findUnique({ where: { userId_eventId: { userId, eventId } } })`:
-  - No row → `tx.booking.create` with `CONFIRMED`
-  - `CANCELLED` → flip back to `CONFIRMED` via `tx.booking.update`
-  - `CONFIRMED` → let unique constraint fire, catch `P2002` → throw `HttpError(409)`
-  - `WAITLISTED` → throw `HttpError(409)` (already waitlisted, promotion is Session 5)
-- [x] Catch Prisma error `P2002` outside the transaction → `HttpError(409, "Duplicate booking")`
-
-### 2c. Remaining bookings service + controller → async
-- [x] `getBooking` → async, `await` repo call
-- [x] `deleteBooking` → async, use `prisma.booking.update` to set `status: CANCELLED`
-- [x] Make all 3 controller handlers async + add `await`
-- [x] Verify controllers don't contain business logic (only call service + set status)
-
-### 2d. Fetch starter files & test concurrency
-- [x] Get `scripts/parallel-bookings.ts` and `scripts/fixtures/parallel-users.json` (from instructor or write manually)
-- [x] Fill in `parallel-users.json` with real user/event IDs from seed
-- [x] Run `node scripts/parallel-bookings.ts` → expect exactly 5× `201`, 15× `409`
-- [x] Verify in psql: `SELECT status, COUNT(*) FROM "Booking" WHERE "eventId" = '...' GROUP BY status`
-
-## Task 3: Seed script
-- [x] Create `prisma/seed.ts` using Prisma `upsert` for idempotency
-- [x] Seed data:
-  - 3+ users (1 ORGANIZER, 1 ADMIN, 1+ ATTENDEE)
-  - 20 additional ATTENDEE users (for the parallel-bookings test)
-  - 5 events (one with `capacity: 5` for the concurrency test)
-  - A few sample bookings
-- [x] Register seed in `prisma.config.ts`: `seed: 'node prisma/seed.ts'`
-- [x] Verify idempotent: `npx prisma db seed` runs twice without errors
-
-## Task 4: Prove an index
-- [x] Enable Prisma query logging: `new PrismaClient({ adapter, log: ['query'] })`
-- [x] Identify the "bookings by user" query and run `EXPLAIN ANALYZE` in psql (BEFORE index)
-- [x] Add index to schema: `@@index([userId])` on Booking (or whichever column helps)
-- [x] Run new migration, re-run `EXPLAIN ANALYZE` (AFTER index)
-- [x] Write 2 sentences of my own interpretation in the PR description
-- [x] Remove `log: ['query']` after analysis
+> Some of the tasks below were already implemented while studying Session 4 and
+> applying the lecture slides. These are marked as done. The remaining items are
+> what I still need to implement for the official homework submission.
 
 ---
 
-## Final checks
-- [x] `npm run typecheck` passes
-- [x] `npm run lint` passes
-- [x] No `new Map` or `domain.ts` imports remain in events/bookings code
-- [x] Fresh-clone test passes
-- [x] PR description includes: how-to-run, before/after EXPLAIN plans, exit-ticket answer
+## Task 1: Protect Every Endpoint
+
+### Route policy verification
+- [x] `POST /v1/auth/signup`, `/login`, `/refresh` — public
+- [x] `GET /v1/events`, `GET /v1/events/:id` — public
+- [x] `POST /v1/events` — `requireAuth` + `requireRole('ORGANIZER','ADMIN')`
+- [x] `PATCH /v1/events/:id` — `requireAuth` + `requireRole('ORGANIZER','ADMIN')`
+- [x] `DELETE /v1/events/:id` — `requireAuth` + `requireRole('ORGANIZER','ADMIN')`
+- [x] `POST /v1/bookings` — `requireAuth`
+- [x] `DELETE /v1/bookings/:id` — `requireAuth`
+- [x] `GET /v1/bookings/:id` — `requireAuth`
+- [x] `GET /health` — public
+
+### Bug fixes (required for protection to actually work)
+- [ ] **Fix `events.service.ts`**: `createEvent` hardcodes `organizerId: "temp-organizer-id"` — must accept `organizerId` as a parameter from the controller
+- [ ] **Fix `events.controller.ts`**: `createEventHandler` must pass `req.user!.sub` as `organizerId`
+- [ ] **Fix `bookings.controller.ts`**: `createBookingHandler` uses `req.headers["x-user-id"]` — must use `req.user!.sub` instead; remove the `"temp-user-id"` fallback
+
+### Tests
+- [ ] Unauthenticated `POST /v1/events` → 401
+- [ ] ATTENDEE `POST /v1/events` → 403
+- [ ] ORGANIZER `POST /v1/events` → 201 (or 400 with missing fields)
+- [ ] Unauthenticated `POST /v1/bookings` → 401
+- [ ] `GET /v1/events` without token → 200 (public)
+
+---
+
+## Task 2: Ownership / BOLA
+
+### Event ownership
+- [x] `updateEvent` and `deleteEvent` in `events.service.ts` must accept `userId` and `userRole`
+- [x] If `userRole !== 'ADMIN'`, check `event.organizerId === userId`; otherwise throw `ForbiddenError`
+- [x] `updateEventHandler` and `deleteEventHandler` in `events.controller.ts` must pass `req.user!.sub` and `req.user!.role`
+
+### Booking ownership
+- [x] `deleteBooking` in `bookings.service.ts` must accept `userId`
+- [x] Check `booking.userId === userId`; otherwise throw `ForbiddenError`
+- [x] `deleteBookingHandler` in `bookings.controller.ts` must pass `req.user!.sub`
+
+### Seed
+- [x] Add a second ORGANIZER to `prisma/seed.ts` (e.g. `org2@example.com`)
+- [x] Assign at least one event to the second organizer
+
+### Tests
+- [ ] Organizer A cannot `PATCH` Organizer B's event → 403
+- [ ] Organizer A cannot `DELETE` Organizer B's event → 403
+- [ ] ADMIN can `PATCH`/`DELETE` any event → 200/204
+- [ ] User A cannot `DELETE` User B's booking → 403
+
+---
+
+## Task 3: Refresh-Token Rotation (Rework to Match Starter)
+
+### Schema change
+- [x] Replace current `RefreshToken` model in `schema.prisma` with the starter spec:
+  - Add `id String @id @default(uuid(7)) @db.Uuid`
+  - Change `tokenHash` from `@id` to `@unique`
+  - Add `revokedAt DateTime?`
+  - Add `replacedById String? @unique @db.Uuid` with self-relation (`RotationChain`)
+  - Add `@@index([userId])`
+  - Remove `onDelete: Cascade` on user FK (use Prisma default `RESTRICT`)
+- [x] Run `npx prisma migrate dev --name rework-refresh-token`
+- [x] Compare generated SQL against `starters/prisma/migration.sql`
+
+### Repository (`auth.repository.ts`)
+- [x] `storeRefreshToken` must return the created row (including `id`) for `replacedById` linkage
+- [x] Replace `deleteRefreshToken` with `revokeRefreshToken(tokenHash, replacedById)` that updates `revokedAt = now()` and sets `replacedById`
+- [x] `findRefreshToken` must return `revokedAt` so the service can detect reuse
+
+### Service (`auth.service.ts`)
+- [x] **`login`**: Issues access + refresh token pair (implemented during slides)
+- [x] **`refresh`**: Rewrite rotation using an **atomic Prisma `$transaction`**:
+  1. Hash incoming token using the existing `sha256` helper — do not duplicate hashing logic
+  2. Look up the row by hash
+  3. If not found → 401
+  4. If `revokedAt` is set → 401 (reuse/theft signal)
+  5. If `expiresAt < now` → 401
+  6. **Inside a single `$transaction`:**
+     - Insert replacement row R2
+     - Update R1: set `revokedAt = now()`, `replacedById = R2.id`
+  7. Sign new access token, return `{ accessToken, refreshToken: R2 raw }`
+- [x] Reuse the existing `sha256` helper from `auth.utils.ts` for all token hashing
+
+### Cookie handling
+- [x] `httpOnly: true`, `secure: true`, `sameSite: 'strict'`, `path: '/v1/auth/refresh'`
+- [x] Raw refresh token never in JSON response body
+
+### Tests
+- [ ] `POST /v1/auth/refresh` with valid cookie → 200 + new cookie
+- [ ] Replay old rotated cookie → 401
+- [ ] Missing cookie → 401
+- [ ] Random/fake cookie → 401
+- [ ] DB contains only SHA-256 hashes, never raw tokens
+
+---
+
+## Task 4: AI-Assisted Security Audit
+
+- [ ] Run audit prompt against key endpoints:
+  > "Audit this endpoint against the OWASP API Security Top 10. For each finding: severity, line, fix."
+- [ ] Include the exact prompt in PR description
+- [ ] Triage ≥ 3 findings as: **fixed** / **false-positive** / **accepted-risk** with one-line justification
+
+---
+
+## Global / Config
+
+- [x] HS256 pinning on sign AND verify
+- [x] Zod-parse JWT payloads, never type-cast
+- [x] Response DTOs use explicit allowlists — `password` never returned
+- [x] Login failure uses one generic message
+- [x] Add `WEB_ORIGIN: z.string().min(1)` to `envSchema` in `config.ts`
+- [x] Add `WEB_ORIGIN=http://localhost:5175` to `.env.example`
+- [x] Add `WEB_ORIGIN=http://localhost:5175` to `.env`
+
+---
+
+## Final Checks
+
+- [ ] `npm run typecheck` passes
+- [ ] `npm run lint` passes
+- [ ] All curl/test transcripts saved for PR
+- [ ] PR description includes: audit prompt, ≥ 3 triaged findings, why `GET /v1/events` is public
