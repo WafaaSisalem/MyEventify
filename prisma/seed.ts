@@ -12,10 +12,10 @@ async function main() {
 
     // 1. Upsert base users (ORGANIZER, ADMIN, ATTENDEE)
     // UUIDv7 placeholders for deterministic seeding
-    const organizerId = "0194bc00-0000-7000-0000-000000000001";
-    const organizer2Id = "0194bc00-0000-7000-0000-000000000011";
-    const adminId = "0194bc00-0000-7000-0000-000000000002";
-    const attendeeId = "0194bc00-0000-7000-0000-000000000003";
+    const organizerId = "0194bc00-0000-7000-8000-000000000001";
+    const organizer2Id = "0194bc00-0000-7000-8000-000000000011";
+    const adminId = "0194bc00-0000-7000-8000-000000000002";
+    const attendeeId = "0194bc00-0000-7000-8000-000000000003";
 
     await prisma.user.upsert({
         where: { email: "org@example.com" },
@@ -40,7 +40,7 @@ async function main() {
 
     // 2. Upsert 20 additional test users for concurrency tests
     for (let i = 1; i <= 20; i++) {
-        const id = `0194bc00-0000-7000-0000-0000000001${i.toString().padStart(2, '0')}`;
+        const id = `0194bc00-0000-7000-8000-0000000001${i.toString().padStart(2, '0')}`;
         await prisma.user.upsert({
             where: { email: `testuser${i}@example.com` },
             update: {},
@@ -49,7 +49,7 @@ async function main() {
     }
 
     // 3. Upsert 5 Events
-    const concurrencyEventId = "0194bc00-0000-7000-0000-000000000201";
+    const concurrencyEventId = "0194bc00-0000-7000-8000-000000000201";
 
     // The capacity: 5 event specifically for testing
     await prisma.event.upsert({
@@ -69,7 +69,7 @@ async function main() {
 
     // 4 additional regular events
     for (let i = 2; i <= 5; i++) {
-        const eventId = `0194bc00-0000-7000-0000-00000000020${i}`;
+        const eventId = `0194bc00-0000-7000-8000-00000000020${i}`;
         // Assign the last event to the second organizer for BOLA testing
         const eventOrganizerId = i === 5 ? organizer2Id : organizerId;
         
@@ -90,7 +90,7 @@ async function main() {
     }
 
     // 4. Sample bookings (not touching the concurrency event to keep it pristine)
-    const sampleEventId = "0194bc00-0000-7000-0000-000000000202";
+    const sampleEventId = "0194bc00-0000-7000-8000-000000000202";
     await prisma.booking.upsert({
         where: { userId_eventId: { userId: attendeeId, eventId: sampleEventId } },
         update: {},

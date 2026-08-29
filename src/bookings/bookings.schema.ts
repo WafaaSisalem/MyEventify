@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const CreateBookingSchema = z.strictObject({
-    eventId: z.string().min(1, "Event ID is required"),
+    eventId: z.uuid("Invalid Event ID format"),
 });
 
 export type CreateBookingInput = z.infer<typeof CreateBookingSchema>;

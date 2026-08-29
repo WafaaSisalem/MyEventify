@@ -7,7 +7,7 @@ import {
     updateEventHandler,
     deleteEventHandler,
 } from "./events.controller.ts";
-import { validate, validateQuery } from "../middleware/validate.ts";
+import { validate, validateQuery, validateParams, UuidParamSchema } from "../middleware/validate.ts";
 import { CreateEventSchema, UpdateEventSchema, EventQuerySchema } from "./events.schema.ts";
 import { requireAuth, requireRole } from "../middleware/auth.ts";
 
@@ -21,11 +21,12 @@ router.post(
     createEventHandler,
 );
 router.get("/", validateQuery(EventQuerySchema), listEventsHandler);
-router.get("/:id", getEventHandler);
+router.get("/:id", validateParams(UuidParamSchema), getEventHandler);
 router.patch(
     "/:id",
     requireAuth,
     requireRole('ORGANIZER', 'ADMIN'),
+    validateParams(UuidParamSchema),
     validate(UpdateEventSchema),
     updateEventHandler
 );
@@ -33,6 +34,7 @@ router.delete(
     "/:id",
     requireAuth,
     requireRole('ORGANIZER', 'ADMIN'),
+    validateParams(UuidParamSchema),
     deleteEventHandler
 );
 

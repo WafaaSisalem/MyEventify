@@ -1,4 +1,5 @@
 import type { CreateEventInput, UpdateEventInput, EventQuery } from "./events.schema.ts";
+import type { Prisma } from "../generated/prisma/client.ts";
 import * as eventsRepo from "./events.repository.ts";
 import { ForbiddenError } from "../errors/http-error.ts";
 
@@ -11,31 +12,35 @@ export async function createEvent(input: CreateEventInput, organizerId: string) 
 
 export async function listEvents(query: EventQuery = {}) {
     const { page = 1, limit = 20, venue, from, to, sort } = query;
-    let filteredEvents = await eventsRepo.findAll();
-
+    
+    const where: Prisma.EventWhereInput = {};
     if (venue) {
-        filteredEvents = filteredEvents.filter(e => e.venue === venue);
+        where.venue = venue;
+    }
+    if (from || to) {
+        where.startsAt = {};
+        if (from) where.startsAt.gte = from;
+        if (to) where.startsAt.lte = to;
     }
 
-    if (from) {
-        filteredEvents = filteredEvents.filter(e => e.startsAt >= from);
-    }
-
-    if (to) {
-        filteredEvents = filteredEvents.filter(e => e.startsAt <= to);
-    }
-
+    const orderBy: Prisma.EventOrderByWithRelationInput = {};
     if (sort === "startsAt:asc") {
-        filteredEvents.sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime());
+        orderBy.startsAt = 'asc';
     } else if (sort === "startsAt:desc") {
-        filteredEvents.sort((a, b) => b.startsAt.getTime() - a.startsAt.getTime());
+        orderBy.startsAt = 'desc';
     }
-
-    const total = filteredEvents.length;
 
     const startIndex = (page - 1) * limit;
-    const endIndex = startIndex + limit;
-    const data = filteredEvents.slice(startIndex, endIndex);
+
+    const [data, total] = await Promise.all([
+        eventsRepo.findMany({
+            where,
+            orderBy: Object.keys(orderBy).length > 0 ? orderBy : undefined,
+            skip: startIndex,
+            take: limit,
+        }),
+        eventsRepo.count({ where }),
+    ]);
 
     return {
         data,

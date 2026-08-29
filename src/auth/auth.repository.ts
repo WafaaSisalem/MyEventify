@@ -62,3 +62,10 @@ export async function rotateRefreshToken(oldTokenHash: string, newTokenHash: str
     return newRow;
   });
 }
+
+export async function revokeAllUserTokens(userId: string) {
+  return prisma.refreshToken.updateMany({
+    where: { userId, revokedAt: null },
+    data: { revokedAt: new Date() },
+  });
+}

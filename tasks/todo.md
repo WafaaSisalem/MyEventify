@@ -20,16 +20,16 @@
 - [x] `GET /health` — public
 
 ### Bug fixes (required for protection to actually work)
-- [ ] **Fix `events.service.ts`**: `createEvent` hardcodes `organizerId: "temp-organizer-id"` — must accept `organizerId` as a parameter from the controller
-- [ ] **Fix `events.controller.ts`**: `createEventHandler` must pass `req.user!.sub` as `organizerId`
-- [ ] **Fix `bookings.controller.ts`**: `createBookingHandler` uses `req.headers["x-user-id"]` — must use `req.user!.sub` instead; remove the `"temp-user-id"` fallback
+- [x] **Fix `events.service.ts`**: `createEvent` hardcodes `organizerId: "temp-organizer-id"` — must accept `organizerId` as a parameter from the controller
+- [x] **Fix `events.controller.ts`**: `createEventHandler` must pass `req.user!.sub` as `organizerId`
+- [x] **Fix `bookings.controller.ts`**: `createBookingHandler` uses `req.headers["x-user-id"]` — must use `req.user!.sub` instead; remove the `"temp-user-id"` fallback
 
 ### Tests
-- [ ] Unauthenticated `POST /v1/events` → 401
-- [ ] ATTENDEE `POST /v1/events` → 403
-- [ ] ORGANIZER `POST /v1/events` → 201 (or 400 with missing fields)
-- [ ] Unauthenticated `POST /v1/bookings` → 401
-- [ ] `GET /v1/events` without token → 200 (public)
+- [x] Unauthenticated `POST /v1/events` → 401
+- [x] ATTENDEE `POST /v1/events` → 403
+- [x] ORGANIZER `POST /v1/events` → 201 (or 400 with missing fields)
+- [x] Unauthenticated `POST /v1/bookings` → 401
+- [x] `GET /v1/events` without token → 200 (public)
 
 ---
 
@@ -50,14 +50,17 @@
 - [x] Assign at least one event to the second organizer
 
 ### Tests
-- [ ] Organizer A cannot `PATCH` Organizer B's event → 403
-- [ ] Organizer A cannot `DELETE` Organizer B's event → 403
-- [ ] ADMIN can `PATCH`/`DELETE` any event → 200/204
-- [ ] User A cannot `DELETE` User B's booking → 403
+- [x] Organizer A cannot `PATCH` Organizer B's event → 403
+- [x] Organizer A cannot `DELETE` Organizer B's event → 403
+- [x] ADMIN can `PATCH`/`DELETE` any event → 200/204
+- [x] User A cannot `DELETE` User B's booking → 403
 
 ---
 
 ## Task 3: Refresh-Token Rotation (Rework to Match Starter)
+
+### Stretch Goals
+- [x] Implement token family revocation (revoke all tokens if an old one is replayed).
 
 ### Schema change
 - [x] Replace current `RefreshToken` model in `schema.prisma` with the starter spec:
@@ -94,20 +97,20 @@
 - [x] Raw refresh token never in JSON response body
 
 ### Tests
-- [ ] `POST /v1/auth/refresh` with valid cookie → 200 + new cookie
-- [ ] Replay old rotated cookie → 401
-- [ ] Missing cookie → 401
-- [ ] Random/fake cookie → 401
-- [ ] DB contains only SHA-256 hashes, never raw tokens
+- [x] `POST /v1/auth/refresh` with valid cookie → 200 + new cookie
+- [x] Replay old rotated cookie → 401
+- [x] Missing cookie → 401
+- [x] Random/fake cookie → 401
+- [x] DB contains only SHA-256 hashes, never raw tokens
 
 ---
 
 ## Task 4: AI-Assisted Security Audit
 
-- [ ] Run audit prompt against key endpoints:
+- [x] Run audit prompt against key endpoints:
   > "Audit this endpoint against the OWASP API Security Top 10. For each finding: severity, line, fix."
-- [ ] Include the exact prompt in PR description
-- [ ] Triage ≥ 3 findings as: **fixed** / **false-positive** / **accepted-risk** with one-line justification
+- [x] Include the exact prompt in PR description
+- [x] Triage ≥ 3 findings as: **fixed** / **false-positive** / **accepted-risk** with one-line justification
 
 ---
 
@@ -125,7 +128,7 @@
 
 ## Final Checks
 
-- [ ] `npm run typecheck` passes
-- [ ] `npm run lint` passes
-- [ ] All curl/test transcripts saved for PR
-- [ ] PR description includes: audit prompt, ≥ 3 triaged findings, why `GET /v1/events` is public
+- [x] `npm run typecheck` passes
+- [x] `npm run lint` passes
+- [x] All curl/test transcripts saved for PR
+- [x] PR description includes: audit prompt, ≥ 3 triaged findings, why `GET /v1/events` is public

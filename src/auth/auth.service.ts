@@ -56,9 +56,10 @@ export async function refresh(rawRefreshToken: string) {
 
   // Check if token was already revoked (Reuse / Theft signal)
   if (storedToken.revokedAt) {
-    // STRETCH: We could revoke the entire family here by tracing replacedById.
-    // For now, we just deny the request.
-    throw new UnauthorizedError('Refresh token has been revoked');
+    // STRETCH: Token family revocation - if an old token is replayed,
+    // we assume the token was stolen and revoke all tokens for this user.
+    await authRepo.revokeAllUserTokens(storedToken.user.id);
+    throw new UnauthorizedError('Refresh token has been revoked (potential token theft)');
   }
 
   // Check expiration

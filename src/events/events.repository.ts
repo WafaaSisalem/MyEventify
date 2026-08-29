@@ -5,6 +5,14 @@ export async function findAll(): Promise<Event[]> {
     return prisma.event.findMany();
 }
 
+export async function findMany(args: Parameters<typeof prisma.event.findMany>[0]) {
+    return prisma.event.findMany(args);
+}
+
+export async function count(args: Parameters<typeof prisma.event.count>[0]) {
+    return prisma.event.count(args);
+}
+
 export async function findById(id: string): Promise<Event | null> {
     return prisma.event.findUnique({ where: { id } });
 }
