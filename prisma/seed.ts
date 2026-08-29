@@ -13,6 +13,7 @@ async function main() {
     // 1. Upsert base users (ORGANIZER, ADMIN, ATTENDEE)
     // UUIDv7 placeholders for deterministic seeding
     const organizerId = "0194bc00-0000-7000-0000-000000000001";
+    const organizer2Id = "0194bc00-0000-7000-0000-000000000011";
     const adminId = "0194bc00-0000-7000-0000-000000000002";
     const attendeeId = "0194bc00-0000-7000-0000-000000000003";
 
@@ -20,6 +21,11 @@ async function main() {
         where: { email: "org@example.com" },
         update: {},
         create: { id: organizerId, email: "org@example.com", name: "Organizer User", role: "ORGANIZER", password: dummyPassword }
+    });
+    await prisma.user.upsert({
+        where: { email: "org2@example.com" },
+        update: {},
+        create: { id: organizer2Id, email: "org2@example.com", name: "Organizer Two", role: "ORGANIZER", password: dummyPassword }
     });
     await prisma.user.upsert({
         where: { email: "admin@example.com" },
@@ -64,6 +70,9 @@ async function main() {
     // 4 additional regular events
     for (let i = 2; i <= 5; i++) {
         const eventId = `0194bc00-0000-7000-0000-00000000020${i}`;
+        // Assign the last event to the second organizer for BOLA testing
+        const eventOrganizerId = i === 5 ? organizer2Id : organizerId;
+        
         await prisma.event.upsert({
             where: { id: eventId },
             update: {},
@@ -75,7 +84,7 @@ async function main() {
                 startsAt: new Date(Date.now() + 86400000 * (10 + i)),
                 capacity: 100,
                 priceCents: 5000 * i,
-                organizerId
+                organizerId: eventOrganizerId
             }
         });
     }

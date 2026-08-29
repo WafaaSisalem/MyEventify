@@ -1,9 +1,10 @@
 import type { CreateEventInput, UpdateEventInput, EventQuery } from "./events.schema.ts";
 import * as eventsRepo from "./events.repository.ts";
+import { ForbiddenError } from "../errors/http-error.ts";
 
-export async function createEvent(input: CreateEventInput) {
+export async function createEvent(input: CreateEventInput, organizerId: string) {
     return eventsRepo.save({
-        organizerId: "temp-organizer-id",
+        organizerId,
         ...input,
     });
 }
@@ -51,6 +52,8 @@ export async function getEvent(id: string) {
 export async function updateEvent(
     id: string,
     input: UpdateEventInput,
+    userId: string,
+    userRole: string
 ) {
     const event = await eventsRepo.findById(id);
 
@@ -58,9 +61,23 @@ export async function updateEvent(
         return null;
     }
 
+    if (userRole !== 'ADMIN' && event.organizerId !== userId) {
+        throw new ForbiddenError();
+    }
+
     return eventsRepo.update(id, input);
 }
 
-export async function deleteEvent(id: string) {
+export async function deleteEvent(id: string, userId: string, userRole: string) {
+    const event = await eventsRepo.findById(id);
+
+    if (!event) {
+        return false;
+    }
+
+    if (userRole !== 'ADMIN' && event.organizerId !== userId) {
+        throw new ForbiddenError();
+    }
+
     return eventsRepo.remove(id);
 }

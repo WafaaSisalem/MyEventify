@@ -1,7 +1,7 @@
 import type { Booking } from "../generated/prisma/client.ts";
 import { prisma } from "../infra/db.ts";
 import { getEvent } from "../events/events.service.ts";
-import { HttpError } from "../errors/http-error.ts";
+import { HttpError, ForbiddenError } from "../errors/http-error.ts";
 import * as bookingsRepo from "./bookings.repository.ts";
 
 export async function createBooking(eventId: string, userId: string): Promise<Booking> {
@@ -87,10 +87,14 @@ export async function getBooking(id: string): Promise<Booking | null> {
     return await bookingsRepo.findById(id);
 }
 
-export async function deleteBooking(id: string): Promise<Booking | null> {
+export async function deleteBooking(id: string, userId: string, userRole: string): Promise<Booking | null> {
     const booking = await bookingsRepo.findById(id);
     if (!booking) {
         return null;
+    }
+
+    if (userRole !== 'ADMIN' && booking.userId !== userId) {
+        throw new ForbiddenError();
     }
 
     return await bookingsRepo.update(id, { status: "CANCELLED" });

@@ -10,7 +10,7 @@ import { HttpError } from "../errors/http-error.ts";
 import type { EventQuery } from "./events.schema.ts";
 
 export async function createEventHandler(req: Request, res: Response) {
-    const event = await createEvent(req.body);
+    const event = await createEvent(req.body, req.user!.sub);
     res.status(201).json(event);
 }
 
@@ -32,7 +32,7 @@ export async function getEventHandler(req: Request<{ id: string }>, res: Respons
 }
 
 export async function updateEventHandler(req: Request<{ id: string }>, res: Response) {
-    const event = await updateEvent(req.params.id, req.body);
+    const event = await updateEvent(req.params.id, req.body, req.user!.sub, req.user!.role);
 
     if (!event) {
         throw new HttpError(404, "Event not found");
@@ -42,7 +42,7 @@ export async function updateEventHandler(req: Request<{ id: string }>, res: Resp
 }
 
 export async function deleteEventHandler(req: Request<{ id: string }>, res: Response) {
-    const deleted = await deleteEvent(req.params.id);
+    const deleted = await deleteEvent(req.params.id, req.user!.sub, req.user!.role);
 
     if (!deleted) {
         throw new HttpError(404, "Event not found");
