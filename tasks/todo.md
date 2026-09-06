@@ -13,9 +13,9 @@
 
 ## Cache Metrics
 
-- [ ] Add cache hit/miss counters
-- [ ] Log hits, misses, and hit ratio
-- [ ] Verify metrics logging
+- [x] Add cache hit/miss counters
+- [x] Log hits, misses, and hit ratio
+- [x] Verify metrics logging
 
 ## Redis Rate Limiting
 

@@ -1,14 +1,43 @@
 import { redis } from "./redis.ts";
 
+let hits = 0;
+let misses = 0;
+let lookupsSinceLastLog = 0;
+
+function logMetrics() {
+  const total = hits + misses;
+  const ratio = total === 0 ? 0 : hits / total;
+  
+  console.log(JSON.stringify({
+    hits,
+    misses,
+    ratio: Number(ratio.toFixed(4)),
+  }));
+  
+  lookupsSinceLastLog = 0;
+}
+
+setInterval(() => {
+  if (lookupsSinceLastLog > 0) {
+    logMetrics();
+  }
+}, 60000).unref();
+
 export const cache = {
   async get<T>(key: string): Promise<T | null> {
     try {
       const cached = await redis.get(key);
 
+      lookupsSinceLastLog++;
+
       if (!cached) {
+        misses++;
+        if (lookupsSinceLastLog >= 100) logMetrics();
         return null;
       }
 
+      hits++;
+      if (lookupsSinceLastLog >= 100) logMetrics();
       return JSON.parse(cached) as T;
     } catch (error) {
       console.warn(`Redis GET error for key ${key}:`, error);
