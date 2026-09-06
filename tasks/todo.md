@@ -25,5 +25,5 @@
 
 ## Deploy Prep
 
-- [ ] Create and provision Render, Neon, and Upstash
-- [ ] Save connection strings securely
+- [x] Create and provision Render, Neon, and Upstash
+- [x] Save connection strings securely

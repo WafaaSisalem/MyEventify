@@ -32,7 +32,7 @@ export const mailer = {
       }
 
       return info;
-    } catch (error) {
+    } catch {
       // Fallback: Console
       console.warn("Ethereal failed, using console transport...");
 
