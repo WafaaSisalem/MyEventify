@@ -19,9 +19,9 @@
 
 ## Redis Rate Limiting
 
-- [ ] Limit login requests per IP (already done partially, will verify strictness)
-- [ ] Limit booking creation per authenticated user
-- [ ] Test the rate limit threshold and window recovery
+- [x] Limit login requests per IP (already done partially, will verify strictness)
+- [x] Limit booking creation per authenticated user
+- [x] Test the rate limit threshold and window recovery
 
 ## Deploy Prep
 

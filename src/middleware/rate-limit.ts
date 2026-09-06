@@ -1,11 +1,12 @@
 import type { Request, Response, NextFunction } from "express";
 import { redis } from "../infra/redis.ts";
 export const limiter =
-  (max: number, windowSec: number) =>
+  (max: number, windowSec: number, keyGenerator?: (req: Request) => string) =>
   async (req: Request, res: Response, next: NextFunction) => {
     const win = Math.floor(Date.now() / (windowSec * 1000));
 
-    const key = `rl:${req.ip}:${req.path}:${win}`;
+    const identifier = keyGenerator ? keyGenerator(req) : req.ip;
+    const key = `rl:${identifier}:${req.path}:${win}`;
 
     const count = await redis.incr(key);
 
