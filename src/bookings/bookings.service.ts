@@ -3,7 +3,7 @@ import { prisma } from "../infra/db.ts";
 import { HttpError, ForbiddenError } from "../errors/http-error.ts";
 import * as bookingsRepo from "./bookings.repository.ts";
 import { emailQueue } from "../jobs/email.queue.ts";
-
+import { promotionQueue } from "../jobs/promotion.queue.ts";
 export async function createBooking(
   eventId: string,
   userId: string,
@@ -76,9 +76,11 @@ export async function createBooking(
       );
 
       // Transaction committed successfully
-      await emailQueue.add("confirmation", {
-        bookingId: booking.id,
-      });
+      if (booking.status === "CONFIRMED") {
+        await emailQueue.add("confirmation", {
+          bookingId: booking.id,
+        });
+      }
 
       return booking;
     } catch (error: unknown) {
@@ -118,5 +120,11 @@ export async function deleteBooking(
     throw new ForbiddenError();
   }
 
-  return await bookingsRepo.update(id, { status: "CANCELLED" });
+  const updatedBooking = await bookingsRepo.update(id, { status: "CANCELLED" });
+
+  if (booking.status === "CONFIRMED") {
+    await promotionQueue.add("promote", { eventId: booking.eventId });
+  }
+
+  return updatedBooking;
 }

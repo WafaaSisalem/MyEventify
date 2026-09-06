@@ -2,14 +2,14 @@
 
 ## Background Job — Waitlist Promotion
 
-- [ ] Verify full events create WAITLISTED bookings
-- [ ] Create the waitlist promotion queue
-- [ ] Enqueue a promotion job after a confirmed booking is cancelled
-- [ ] Add the waitlist promotion worker
-- [ ] Re-check capacity and promote the oldest waitlisted booking in a transaction
-- [ ] Enqueue a confirmation email after promotion
-- [ ] Verify retry/idempotency safety
-- [ ] Test the full waitlist promotion flow
+- [x] Verify full events create WAITLISTED bookings
+- [x] Create the waitlist promotion queue
+- [x] Enqueue a promotion job after a confirmed booking is cancelled
+- [x] Add the waitlist promotion worker
+- [x] Re-check capacity and promote the oldest waitlisted booking in a transaction
+- [x] Enqueue a confirmation email after promotion
+- [x] Verify retry/idempotency safety
+- [x] Test the full waitlist promotion flow
 
 ## Cache Metrics
 
