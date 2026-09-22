@@ -11,9 +11,11 @@
     "dev": "node --watch --env-file=.env src/server.ts",
     "start": "node src/server.ts",
     "start:worker": "node src/worker.ts",
+    "verify:rate-limit": "node --env-file=.env scripts/rate-limit.ts",
+    "verify:waitlist": "node --env-file=.env scripts/waitlist-promotion.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
-    "test": "echo \"No tests yet - Vitest arrives in Session 6\" && exit 0"
+    "test": "vitest"
   },
   "devDependencies": {
     "@types/cookie-parser": "^1.4.10",
@@ -21,10 +23,13 @@
     "@types/node": "^24.5.0",
     "@types/nodemailer": "^8.0.1",
     "@types/pg": "^8.23.1",
+    "@types/supertest": "^7.2.1",
     "eslint": "^9.30.0",
     "prisma": "^7.9.1",
+    "supertest": "^7.2.2",
     "typescript": "^5.9.0",
-    "typescript-eslint": "^8.40.0"
+    "typescript-eslint": "^8.40.0",
+    "vitest": "^5.0.1"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.9.1",

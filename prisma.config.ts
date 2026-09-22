@@ -3,7 +3,7 @@ import { defineConfig } from 'prisma/config';
 
 try {
   process.loadEnvFile();
-} catch (error) {
+} catch {
   // Ignore error if .env file is missing in production
 }
 
@@ -12,7 +12,7 @@ export default defineConfig({
   datasource: {
     url: process.env.DATABASE_URL,
   },
-  migrations: {
+  migrations: { 
     seed: 'node --env-file=.env prisma/seed.ts',
   },
 });
