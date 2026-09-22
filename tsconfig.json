@@ -20,7 +20,7 @@
     // ./x.ts -> ./x.js in the emitted output).
     "allowImportingTsExtensions": true,
     "rewriteRelativeImportExtensions": true,
-
+    "rootDir": "./src",
     "outDir": "dist"
   },
   "include": ["src"]

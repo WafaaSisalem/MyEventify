@@ -119,6 +119,8 @@ export async function getEvent(id: string) {
     return null;
   }
 
+  // Event details change infrequently, so keep them for one hour. Event
+  // updates and deletes explicitly invalidate this key to avoid stale data.
   const eventTTL = 3600;
 
   const jitter = Math.floor(Math.random() * 15);
