@@ -15,7 +15,9 @@
     "verify:waitlist": "node --env-file=.env scripts/waitlist-promotion.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
-    "test": "vitest"
+    "test": "vitest",
+    "build": "tsc"
+
   },
   "devDependencies": {
     "@types/cookie-parser": "^1.4.10",
