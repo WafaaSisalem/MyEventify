@@ -8,6 +8,7 @@ const envSchema = z.object({
   REDIS_URL: z.url(),
   ETHEREAL_USER: z.string().min(1),
   ETHEREAL_PASS: z.string().min(1),
+  LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
 });
 
 export const config = envSchema.parse(process.env);

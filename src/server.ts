@@ -1,6 +1,8 @@
 
 import { app } from "./app.ts";
+import { config } from "./config.ts";
+import { logger } from "./infra/logger.ts";
 
-app.listen(3000, () => {
-    console.log("Server running at http://localhost:3000")
+app.listen(config.PORT, () => {
+  logger.info({ port: config.PORT }, "server started");
 });

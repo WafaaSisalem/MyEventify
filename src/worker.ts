@@ -4,6 +4,9 @@ import * as bookingRepo from "./bookings/bookings.repository.ts";
 import { mailer } from "./infra/mailer.ts";
 import { prisma } from "./infra/db.ts";
 import { emailQueue } from "./jobs/email.queue.ts";
+import { logger } from "./infra/logger.ts";
+
+const workerLogger = logger.child({ component: "worker" });
 
 new Worker<{ bookingId: string }>(
   "booking-email",
@@ -30,7 +33,12 @@ new Worker<{ eventId: string }>(
   "waitlist-promote",
   async (job) => {
     const { eventId } = job.data;
-    console.log(`Processing waitlist-promote for event ${eventId}`);
+    const jobLogger = workerLogger.child({
+      queue: "waitlist-promote",
+      jobId: job.id,
+      eventId,
+    });
+    jobLogger.info("processing waitlist promotion");
 
     const promotedBookingId = await prisma.$transaction(
       async (tx) => {
@@ -46,10 +54,13 @@ new Worker<{ eventId: string }>(
           where: { eventId, status: "CONFIRMED" },
         });
 
-        console.log(`Confirmed count: ${confirmedCount}, Capacity: ${event.capacity}`);
+        jobLogger.debug(
+          { confirmedCount, capacity: event.capacity },
+          "checked event capacity",
+        );
 
         if (confirmedCount >= event.capacity) {
-          console.log("Event is full, not promoting");
+          jobLogger.info("event is full; no booking promoted");
           return null; // Still full, do nothing
         }
 
@@ -59,11 +70,14 @@ new Worker<{ eventId: string }>(
         });
 
         if (!oldestWaitlisted) {
-          console.log("No waitlisted bookings found");
+          jobLogger.info("no waitlisted booking found");
           return null; // No one to promote
         }
 
-        console.log(`Promoting booking ${oldestWaitlisted.id}`);
+        jobLogger.info(
+          { bookingId: oldestWaitlisted.id },
+          "promoting waitlisted booking",
+        );
         await tx.booking.update({
           where: { id: oldestWaitlisted.id },
           data: { status: "CONFIRMED" },
