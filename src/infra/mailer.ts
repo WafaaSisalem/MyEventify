@@ -1,6 +1,9 @@
 import nodemailer from "nodemailer";
 import type { SendMailOptions } from "nodemailer";
 import { config } from "../config.ts";
+import { logger } from "./logger.ts";
+
+const mailerLogger = logger.child({ component: "mailer" });
 
 const etherealTransport = nodemailer.createTransport({
   host: "smtp.ethereal.email",
@@ -23,22 +26,22 @@ export const mailer = {
     try {
       const info = await etherealTransport.sendMail(options);
 
-      console.log("Email sent through Ethereal:", info.messageId);
+      mailerLogger.info({ messageId: info.messageId }, "email sent through Ethereal");
 
       const previewUrl = nodemailer.getTestMessageUrl(info);
 
       if (previewUrl) {
-        console.log("Preview URL:", previewUrl);
+        mailerLogger.debug("Ethereal preview is available");
       }
 
       return info;
     } catch {
       // Fallback: Console
-      console.warn("Ethereal failed, using console transport...");
+      mailerLogger.warn("Ethereal delivery failed; using console transport");
 
       const info = await consoleTransport.sendMail(options);
 
-      console.log("Email:", info.message?.toString());
+      mailerLogger.info("email generated with console transport");
 
       return info;
     }
