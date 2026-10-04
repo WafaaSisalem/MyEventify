@@ -12,14 +12,14 @@
 ## CI
 
 - [x] Configure CI with PostgreSQL, Redis, migrations, lint, typecheck, and tests.
-- [ ] Verify CI is green with the complete Capstone test suite.
-- [ ] Capture an intentionally failing CI check, then restore it to green.
-- [ ] Require the `checks` job on `main`.
+- [x] Verify CI is green with the complete Capstone test suite.
+- [x] Capture an intentionally failing CI check, then restore it to green.
+- [x] Require the `checks` job on `main`.
 
 ## Docker and Runtime
 
 - [x] Add the production multi-stage Dockerfile and `.dockerignore`.
-- [ ] Add graceful shutdown for the API and worker.
+- [x] Add graceful shutdown for the API and worker.
 - [ ] Complete Compose with `api`, `worker`, `db`, and `redis`.
 - [ ] Align environment variables across local, tests, CI, Compose, and production.
 - [ ] Verify the complete Compose stack locally.

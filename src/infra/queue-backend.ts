@@ -9,3 +9,9 @@ const raw = createClient({
 await raw.connect();
 
 export const connection = createNodeRedisClient(raw);
+
+export async function closeQueueConnection() {
+  if (raw.isOpen) {
+    await raw.quit();
+  }
+}

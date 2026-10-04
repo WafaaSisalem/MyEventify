@@ -1,14 +1,18 @@
 import { Worker, UnrecoverableError } from "bullmq";
-import { connection } from "./infra/queue-backend.ts";
+import {
+  closeQueueConnection,
+  connection,
+} from "./infra/queue-backend.ts";
 import * as bookingRepo from "./bookings/bookings.repository.ts";
 import { mailer } from "./infra/mailer.ts";
 import { prisma } from "./infra/db.ts";
 import { emailQueue } from "./jobs/email.queue.ts";
 import { logger } from "./infra/logger.ts";
+import { registerWorkerShutdown } from "./infra/shutdown.ts";
 
 const workerLogger = logger.child({ component: "worker" });
 
-new Worker<{ bookingId: string }>(
+const emailWorker = new Worker<{ bookingId: string }>(
   "booking-email",
   async (job) => {
     const b = await bookingRepo.findWithUserAndEvent(job.data.bookingId);
@@ -29,7 +33,7 @@ new Worker<{ bookingId: string }>(
   },
 );
 
-new Worker<{ eventId: string }>(
+const promotionWorker = new Worker<{ eventId: string }>(
   "waitlist-promote",
   async (job) => {
     const { eventId } = job.data;
@@ -97,3 +101,9 @@ new Worker<{ eventId: string }>(
     concurrency: 1, // Safe to run sequentially for waitlist
   },
 );
+
+registerWorkerShutdown([emailWorker, promotionWorker], [
+  { name: "email queue", close: () => emailQueue.close() },
+  { name: "queue Redis", close: closeQueueConnection },
+  { name: "Prisma", close: () => prisma.$disconnect() },
+]);
