@@ -28,7 +28,7 @@ describe("Auth", () => {
         password,
         name: "New User",
       })
-      .expect(200);
+      .expect(201);
 
     expect(response.body.email).toBe("new-user@test.local");
     expect(response.body.password).toBeUndefined();
