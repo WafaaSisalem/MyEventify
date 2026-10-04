@@ -1,7 +1,8 @@
 import jwt from "jsonwebtoken";
-import type { User } from "../src/generated/prisma/client.ts";
+import type { Role, User } from "../src/generated/prisma/client.ts";
 import { config } from "../src/config.ts";
 import { prisma } from "../src/infra/db.ts";
+import { redis } from "../src/infra/redis.ts";
 
 export async function resetDb(): Promise<void> {
   const databaseName = new URL(config.DATABASE_URL).pathname.slice(1);
@@ -12,43 +13,69 @@ export async function resetDb(): Promise<void> {
     );
   }
 
-  await prisma.$executeRawUnsafe(`
-    TRUNCATE TABLE "Booking", "RefreshToken", "Event", "User"
-    RESTART IDENTITY CASCADE
-  `);
+  const redisDatabase = new URL(config.REDIS_URL).pathname.slice(1);
+
+  if (redisDatabase !== "1") {
+    throw new Error(
+      `Refusing to reset Redis database "${redisDatabase || "0"}". Expected "1".`,
+    );
+  }
+
+  await Promise.all([
+    prisma.$executeRawUnsafe(`
+      TRUNCATE TABLE "Booking", "RefreshToken", "Event", "User"
+      RESTART IDENTITY CASCADE
+    `),
+    redis.flushDb(),
+  ]);
 }
 
-export async function seedUserAndEvent({ capacity }: { capacity: number }) {
-  const user = await prisma.user.create({
+export async function seedUser({
+  role,
+  email = `${role.toLowerCase()}@test.local`,
+}: {
+  role: Role;
+  email?: string;
+}) {
+  return prisma.user.create({
     data: {
-      email: "attendee@test.local",
-      name: "Test Attendee",
+      email,
+      name: `Test ${role.toLowerCase()}`,
       password: "not-used-in-this-test",
-      role: "ATTENDEE",
+      role,
     },
   });
+}
 
-  const organizer = await prisma.user.create({
-    data: {
-      email: "organizer@test.local",
-      name: "Test Organizer",
-      password: "not-used-in-this-test",
-      role: "ORGANIZER",
-    },
-  });
-
-  const event = await prisma.event.create({
+export async function seedEvent({
+  organizerId,
+  capacity,
+}: {
+  organizerId: string;
+  capacity: number;
+}) {
+  return prisma.event.create({
     data: {
       title: "Test Event",
       description: "Event created for an integration test",
+      venue: "Test Venue",
       startsAt: new Date("2030-01-01T12:00:00.000Z"),
       capacity,
       priceCents: 1_000,
-      organizerId: organizer.id,
+      organizerId,
     },
   });
+}
 
-  return { user, event };
+export async function seedUserAndEvent({ capacity }: { capacity: number }) {
+  const user = await seedUser({ role: "ATTENDEE" });
+  const organizer = await seedUser({ role: "ORGANIZER" });
+  const event = await seedEvent({
+    organizerId: organizer.id,
+    capacity,
+  });
+
+  return { user, organizer, event };
 }
 
 export function authHeader(user: Pick<User, "id" | "role">) {

@@ -3,11 +3,11 @@
 ## Tests
 
 - [x] Configure isolated integration tests with `eventify_test`, disabled file parallelism, and real JWTs.
-- [ ] Add auth and refresh-rotation tests.
-- [ ] Add role-gated event creation tests.
-- [ ] Add full-event waitlist and cancel-then-rebook tests.
-- [ ] Add a cache-invalidation test and isolate Redis state.
-- [ ] Verify all requests are awaited and tests pass in any order.
+- [x] Add auth and refresh-rotation tests.
+- [x] Add role-gated event creation tests.
+- [x] Add full-event waitlist and cancel-then-rebook tests.
+- [x] Add a cache-invalidation test and isolate Redis state.
+- [x] Verify all requests are awaited and tests pass in any order.
 
 ## CI
 
