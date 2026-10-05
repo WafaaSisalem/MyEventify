@@ -6,9 +6,28 @@ import authRouter from "./auth/auth.routes.ts";
 import { type Request, type Response, type NextFunction } from "express";
 import { prisma } from "./infra/db.ts";
 import { requestLogger } from "./middleware/request-logger.ts";
+import swaggerUi from "swagger-ui-express";
+import { openApiDocument } from "./docs/openapi.ts";
 export const app = express();
 app.use(requestLogger);
 app.use(express.json({ limit: "100kb" }));
+
+app.get("/openapi.json", (_req, res) => {
+  res.json(openApiDocument);
+});
+app.use(
+  "/docs",
+  swaggerUi.serve,
+  swaggerUi.setup(openApiDocument, {
+    customCss: "",
+    customSiteTitle: "Eventify API Docs",
+    swaggerOptions: {
+      persistAuthorization: false,
+      displayRequestDuration: true,
+      withCredentials: true,
+    },
+  }),
+);
 
 app.use("/v1/auth", authRouter);
 app.use("/v1/events", eventsRouter);
