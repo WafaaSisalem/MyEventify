@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import request from "supertest";
 import { app } from "../src/app.ts";
+import { prisma } from "../src/infra/db.ts";
 import {
   authHeader,
   resetDb,
@@ -73,5 +74,56 @@ describe("POST /v1/bookings", () => {
 
     expect(rebooked.body.id).toBe(originalBooking.body.id);
     expect(rebooked.body.status).toBe("CONFIRMED");
+  });
+});
+
+describe("GET /v1/bookings/:id", () => {
+  beforeEach(resetDb);
+
+  it("allows the booking owner to read it", async () => {
+    const { user, event } = await seedUserAndEvent({ capacity: 1 });
+    const booking = await prisma.booking.create({
+      data: { userId: user.id, eventId: event.id },
+    });
+
+    const response = await request(app)
+      .get(`/v1/bookings/${booking.id}`)
+      .set(authHeader(user))
+      .expect(200);
+
+    expect(response.body.id).toBe(booking.id);
+    expect(response.body.userId).toBe(user.id);
+  });
+
+  it("allows an admin to read another user's booking", async () => {
+    const { user, event } = await seedUserAndEvent({ capacity: 1 });
+    const admin = await seedUser({
+      role: "ADMIN",
+      email: "booking-admin@test.local",
+    });
+    const booking = await prisma.booking.create({
+      data: { userId: user.id, eventId: event.id },
+    });
+
+    await request(app)
+      .get(`/v1/bookings/${booking.id}`)
+      .set(authHeader(admin))
+      .expect(200);
+  });
+
+  it("rejects another attendee", async () => {
+    const { user, event } = await seedUserAndEvent({ capacity: 1 });
+    const otherAttendee = await seedUser({
+      role: "ATTENDEE",
+      email: "other-attendee@test.local",
+    });
+    const booking = await prisma.booking.create({
+      data: { userId: user.id, eventId: event.id },
+    });
+
+    await request(app)
+      .get(`/v1/bookings/${booking.id}`)
+      .set(authHeader(otherAttendee))
+      .expect(403);
   });
 });

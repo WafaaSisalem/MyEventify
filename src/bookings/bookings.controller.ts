@@ -11,7 +11,11 @@ export async function createBookingHandler(req: Request, res: Response) {
 }
 
 export async function getBookingHandler(req: Request<{ id: string }>, res: Response) {
-    const booking = await getBooking(req.params.id);
+    const booking = await getBooking(
+        req.params.id,
+        req.user!.sub,
+        req.user!.role,
+    );
 
     if (!booking) {
         throw new HttpError(404, "Booking not found");
