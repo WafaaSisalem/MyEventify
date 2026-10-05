@@ -41,9 +41,6 @@ app.get('/health', async (_req, res) => {
   });
 });
 
-app.get("/boom", async (_req, _res) => {
-  throw new Error("Something went wrong");
-});
 app.use((_req, _res) => {
   throw new HttpError(404, "Route not found");
 });

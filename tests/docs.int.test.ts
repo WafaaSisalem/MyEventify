@@ -29,6 +29,35 @@ describe("API documentation", () => {
         name: "refresh_token",
       }),
     );
+    expect(response.body.components.schemas.ValidationError).toEqual(
+      expect.objectContaining({ type: "object" }),
+    );
+    expect(
+      response.body.paths["/v1/auth/signup"].post.responses["400"].content[
+        "application/json"
+      ].examples.validationFailed.value.error,
+    ).toBe("Validation failed");
+    expect(
+      response.body.paths["/v1/auth/refresh"].post.responses["401"].content[
+        "application/json"
+      ].examples.reusedRefreshToken.value.error,
+    ).toBe("Refresh token has been revoked (potential token theft)");
+    expect(
+      Object.keys(
+        response.body.paths["/v1/bookings"].post.responses["409"].content[
+          "application/json"
+        ].examples,
+      ),
+    ).toEqual([
+      "duplicateBooking",
+      "alreadyWaitlisted",
+      "fullRebooking",
+    ]);
+    expect(
+      response.body.paths["/v1/events"].post.responses["500"].content[
+        "application/json"
+      ].examples.internalServerError.value.error,
+    ).toBe("Internal server error");
   });
 
   it("serves Swagger UI", async () => {

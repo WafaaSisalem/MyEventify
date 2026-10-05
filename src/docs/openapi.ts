@@ -210,7 +210,30 @@ const ErrorSchema = registry.register(
   "Error",
   z.strictObject({
     error: z.string(),
-    details: z.unknown().optional(),
+  }),
+);
+
+const ValidationIssueSchema = registry.register(
+  "ValidationIssue",
+  z
+    .object({
+      origin: z.string().optional(),
+      code: z.string(),
+      format: z.string().optional(),
+      minimum: z.number().optional(),
+      maximum: z.number().optional(),
+      inclusive: z.boolean().optional(),
+      path: z.array(z.union([z.string(), z.number()])),
+      message: z.string(),
+    })
+    .catchall(z.unknown()),
+);
+
+const ValidationErrorSchema = registry.register(
+  "ValidationError",
+  z.strictObject({
+    error: z.enum(["Validation failed", "Invalid route parameters"]),
+    details: z.array(ValidationIssueSchema),
   }),
 );
 
@@ -218,10 +241,148 @@ const jsonContent = (schema: z.ZodType) => ({
   "application/json": { schema },
 });
 
-const errorResponse = (description: string) => ({
+type ErrorExamples = Record<
+  string,
+  {
+    summary: string;
+    value: {
+      error: string;
+      details?: unknown;
+    };
+  }
+>;
+
+type ErrorExample = ErrorExamples[string];
+
+const bodyValidationExample: ErrorExample = {
+  summary: "A request field failed validation",
+  value: {
+    error: "Validation failed",
+    details: [
+      {
+        origin: "string",
+        code: "too_small",
+        minimum: 12,
+        inclusive: true,
+        path: ["password"],
+        message: "Too small: expected string to have >=12 characters",
+      },
+    ],
+  },
+};
+
+const invalidIdExample: ErrorExample = {
+  summary: "The path ID is not a UUID",
+  value: {
+    error: "Invalid route parameters",
+    details: [
+      {
+        origin: "string",
+        code: "invalid_format",
+        format: "uuid",
+        path: ["id"],
+        message: "Invalid ID format",
+      },
+    ],
+  },
+};
+
+const errorResponse = (
+  description: string,
+  examples: ErrorExamples,
+  schema: z.ZodType = ErrorSchema,
+) => ({
   description,
-  content: jsonContent(ErrorSchema),
+  content: {
+    "application/json": {
+      schema,
+      examples,
+    },
+  },
 });
+
+const bodyValidationError = errorResponse(
+  "The request body failed validation.",
+  {
+    validationFailed: bodyValidationExample,
+  },
+  ValidationErrorSchema,
+);
+
+const queryValidationError = errorResponse(
+  "One or more query parameters are invalid.",
+  {
+    invalidPage: {
+      summary: "A query parameter failed validation",
+      value: {
+        error: "Validation failed",
+        details: [
+          {
+            origin: "number",
+            code: "too_small",
+            minimum: 1,
+            inclusive: true,
+            path: ["page"],
+            message: "Too small: expected number to be >=1",
+          },
+        ],
+      },
+    },
+  },
+  ValidationErrorSchema,
+);
+
+const idValidationError = errorResponse(
+  "The path ID is not a valid UUID.",
+  {
+    invalidId: invalidIdExample,
+  },
+  ValidationErrorSchema,
+);
+
+const authError = errorResponse(
+  "The access token is missing, invalid, or expired.",
+  {
+    missingToken: {
+      summary: "No bearer token was provided",
+      value: { error: "Missing token" },
+    },
+    invalidToken: {
+      summary: "The bearer token is invalid or expired",
+      value: { error: "Invalid or expired token" },
+    },
+  },
+);
+
+const forbiddenError = errorResponse(
+  "The authenticated user does not have the required permission.",
+  {
+    forbidden: {
+      summary: "The user lacks permission for this operation",
+      value: { error: "Forbidden" },
+    },
+  },
+);
+
+const rateLimitError = errorResponse(
+  "The request rate limit was exceeded.",
+  {
+    tooManyRequests: {
+      summary: "Too many requests were sent in the current window",
+      value: { error: "Too many requests" },
+    },
+  },
+);
+
+const internalServerError = errorResponse(
+  "An unexpected server error occurred.",
+  {
+    internalServerError: {
+      summary: "Unexpected server failure",
+      value: { error: "Internal server error" },
+    },
+  },
+);
 
 registry.registerPath({
   method: "post",
@@ -240,8 +401,14 @@ registry.registerPath({
       description: "Account created. The password is never returned.",
       content: jsonContent(UserSchema),
     },
-    400: errorResponse("The request body failed validation."),
-    409: errorResponse("An account with this email cannot be created."),
+    400: bodyValidationError,
+    409: errorResponse("An account with this email cannot be created.", {
+      accountConflict: {
+        summary: "The email is already registered",
+        value: { error: "Unable to create account" },
+      },
+    }),
+    500: internalServerError,
   },
 });
 
@@ -270,9 +437,15 @@ registry.registerPath({
       },
       content: jsonContent(AccessTokenSchema),
     },
-    400: errorResponse("The request body failed validation."),
-    401: errorResponse("The email or password is invalid."),
-    429: errorResponse("Too many login attempts."),
+    400: bodyValidationError,
+    401: errorResponse("The email or password is invalid.", {
+      invalidCredentials: {
+        summary: "The email or password is incorrect",
+        value: { error: "Invalid credentials" },
+      },
+    }),
+    429: rateLimitError,
+    500: internalServerError,
   },
 });
 
@@ -296,7 +469,22 @@ registry.registerPath({
       },
       content: jsonContent(AccessTokenSchema),
     },
-    401: errorResponse("The refresh token is missing, expired, invalid, or reused."),
+    401: errorResponse(
+      "The refresh token is missing, expired, invalid, or reused.",
+      {
+        invalidRefreshToken: {
+          summary: "The refresh cookie is missing, invalid, or expired",
+          value: { error: "Invalid or expired refresh token" },
+        },
+        reusedRefreshToken: {
+          summary: "A revoked refresh token was reused",
+          value: {
+            error: "Refresh token has been revoked (potential token theft)",
+          },
+        },
+      },
+    ),
+    500: internalServerError,
   },
 });
 
@@ -312,7 +500,8 @@ registry.registerPath({
       description: "A paginated event list.",
       content: jsonContent(EventListSchema),
     },
-    400: errorResponse("One or more query parameters are invalid."),
+    400: queryValidationError,
+    500: internalServerError,
   },
 });
 
@@ -335,9 +524,10 @@ registry.registerPath({
       description: "Event created.",
       content: jsonContent(EventSchema),
     },
-    400: errorResponse("The request body failed validation."),
-    401: errorResponse("The access token is missing, invalid, or expired."),
-    403: errorResponse("The authenticated user cannot create events."),
+    400: bodyValidationError,
+    401: authError,
+    403: forbiddenError,
+    500: internalServerError,
   },
 });
 
@@ -353,8 +543,14 @@ registry.registerPath({
       description: "The requested event.",
       content: jsonContent(EventSchema),
     },
-    400: errorResponse("The event ID is not a valid UUID."),
-    404: errorResponse("The event does not exist."),
+    400: idValidationError,
+    404: errorResponse("The event does not exist.", {
+      eventNotFound: {
+        summary: "No event exists for the supplied ID",
+        value: { error: "Event not found" },
+      },
+    }),
+    500: internalServerError,
   },
 });
 
@@ -378,10 +574,23 @@ registry.registerPath({
       description: "Event updated.",
       content: jsonContent(EventSchema),
     },
-    400: errorResponse("The event ID or request body is invalid."),
-    401: errorResponse("The access token is missing, invalid, or expired."),
-    403: errorResponse("Only the event owner or an admin can update it."),
-    404: errorResponse("The event does not exist."),
+    400: errorResponse(
+      "The event ID or request body failed validation.",
+      {
+        invalidId: invalidIdExample,
+        invalidBody: bodyValidationExample,
+      },
+      ValidationErrorSchema,
+    ),
+    401: authError,
+    403: forbiddenError,
+    404: errorResponse("The event does not exist.", {
+      eventNotFound: {
+        summary: "No event exists for the supplied ID",
+        value: { error: "Event not found" },
+      },
+    }),
+    500: internalServerError,
   },
 });
 
@@ -396,10 +605,16 @@ registry.registerPath({
   request: { params: IdParameterSchema },
   responses: {
     204: { description: "Event deleted." },
-    400: errorResponse("The event ID is not a valid UUID."),
-    401: errorResponse("The access token is missing, invalid, or expired."),
-    403: errorResponse("Only the event owner or an admin can delete it."),
-    404: errorResponse("The event does not exist."),
+    400: idValidationError,
+    401: authError,
+    403: forbiddenError,
+    404: errorResponse("The event does not exist.", {
+      eventNotFound: {
+        summary: "No event exists for the supplied ID",
+        value: { error: "Event not found" },
+      },
+    }),
+    500: internalServerError,
   },
 });
 
@@ -423,11 +638,30 @@ registry.registerPath({
       description: "Booking created or restored.",
       content: jsonContent(BookingSchema),
     },
-    400: errorResponse("The request body failed validation."),
-    401: errorResponse("The access token is missing, invalid, or expired."),
-    404: errorResponse("The selected event does not exist."),
-    409: errorResponse("The booking is duplicated or already waitlisted."),
-    429: errorResponse("Too many booking attempts."),
+    400: bodyValidationError,
+    401: authError,
+    404: errorResponse("The selected event does not exist.", {
+      eventNotFound: {
+        summary: "No event exists for the supplied eventId",
+        value: { error: "Event not found" },
+      },
+    }),
+    409: errorResponse("The booking conflicts with its current state.", {
+      duplicateBooking: {
+        summary: "The user already has a confirmed booking",
+        value: { error: "Duplicate booking" },
+      },
+      alreadyWaitlisted: {
+        summary: "The user is already on the waitlist",
+        value: { error: "User is already waitlisted" },
+      },
+      fullRebooking: {
+        summary: "A cancelled booking cannot be restored because the event is full",
+        value: { error: "Event is full" },
+      },
+    }),
+    429: rateLimitError,
+    500: internalServerError,
   },
 });
 
@@ -445,10 +679,16 @@ registry.registerPath({
       description: "The requested booking.",
       content: jsonContent(BookingSchema),
     },
-    400: errorResponse("The booking ID is not a valid UUID."),
-    401: errorResponse("The access token is missing, invalid, or expired."),
-    403: errorResponse("Only the booking owner or an admin can read it."),
-    404: errorResponse("The booking does not exist."),
+    400: idValidationError,
+    401: authError,
+    403: forbiddenError,
+    404: errorResponse("The booking does not exist.", {
+      bookingNotFound: {
+        summary: "No booking exists for the supplied ID",
+        value: { error: "Booking not found" },
+      },
+    }),
+    500: internalServerError,
   },
 });
 
@@ -463,10 +703,16 @@ registry.registerPath({
   request: { params: IdParameterSchema },
   responses: {
     204: { description: "Booking cancelled." },
-    400: errorResponse("The booking ID is not a valid UUID."),
-    401: errorResponse("The access token is missing, invalid, or expired."),
-    403: errorResponse("Only the booking owner or an admin can cancel it."),
-    404: errorResponse("The booking does not exist."),
+    400: idValidationError,
+    401: authError,
+    403: forbiddenError,
+    404: errorResponse("The booking does not exist.", {
+      bookingNotFound: {
+        summary: "No booking exists for the supplied ID",
+        value: { error: "Booking not found" },
+      },
+    }),
+    500: internalServerError,
   },
 });
 
@@ -481,7 +727,7 @@ registry.registerPath({
       description: "The API and its PostgreSQL connection are healthy.",
       content: jsonContent(HealthSchema),
     },
-    500: errorResponse("The health check failed."),
+    500: internalServerError,
   },
 });
 
