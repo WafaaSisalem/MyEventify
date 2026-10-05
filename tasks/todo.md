@@ -26,11 +26,12 @@
 
 ## Documentation and Submission
 
-- [ ] Rewrite README with the pitch, live URL, architecture, endpoints, setup, env, trade-offs, and AI usage.
-- [ ] Document the API-only deployment and worker trade-off.
-- [ ] Verify README instructions from a fresh-clone perspective.
+- [x] Rewrite README with the pitch, live URL, architecture, endpoints, setup, env, and trade-offs.
+- [x] Document the API-only deployment and worker trade-off.
+- [x] Verify README instructions from a fresh-clone perspective.
 - [ ] Open one PR titled `capstone: Eventify v1.0` with verification results and the failed-CI screenshot.
-- [ ] Run final lint, typecheck, tests, CI, and Docker/Compose checks.
+- [x] Run final lint, typecheck, tests, build, and Docker/Compose checks.
+- [ ] Confirm the final GitHub CI run is green.
 
 ## Optional
 
