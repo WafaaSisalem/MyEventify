@@ -102,8 +102,21 @@ export async function createBooking(
   throw new Error("Transaction failed after max retries");
 }
 
-export async function getBooking(id: string): Promise<Booking | null> {
-  return await bookingsRepo.findById(id);
+export async function getBooking(
+  id: string,
+  userId: string,
+  userRole: string,
+): Promise<Booking | null> {
+  const booking = await bookingsRepo.findById(id);
+  if (!booking) {
+    return null;
+  }
+
+  if (userRole !== "ADMIN" && booking.userId !== userId) {
+    throw new ForbiddenError();
+  }
+
+  return booking;
 }
 
 export async function deleteBooking(
