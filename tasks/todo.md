@@ -20,9 +20,9 @@
 
 - [x] Add the production multi-stage Dockerfile and `.dockerignore`.
 - [x] Add graceful shutdown for the API and worker.
-- [ ] Complete Compose with `api`, `worker`, `db`, and `redis`.
-- [ ] Align environment variables across local, tests, CI, Compose, and production.
-- [ ] Verify the complete Compose stack locally.
+- [x] Complete Compose with `api`, `worker`, `db`, and `redis`.
+- [x] Align environment variables across local, tests, CI, Compose, and production.
+- [x] Verify the complete Compose stack locally.
 
 ## Documentation and Submission
 

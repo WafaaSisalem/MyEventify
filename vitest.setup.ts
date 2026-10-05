@@ -4,7 +4,7 @@ process.env.DATABASE_URL ??=
 
 process.env.JWT_ACCESS_SECRET ??= "test-access-secret";
 
-process.env.WEB_ORIGIN ??= "http://localhost:5175";
+process.env.WEB_ORIGIN ??= "http://localhost:5173";
 
 process.env.REDIS_URL ??= "redis://localhost:6379/1";
 
