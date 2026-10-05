@@ -6,6 +6,8 @@ Eventify is a RESTful event-booking API built with Node.js, Express, TypeScript,
 
 **Health check:** [https://myeventify.onrender.com/health](https://myeventify.onrender.com/health)
 
+**Interactive API documentation:** [https://myeventify.onrender.com/docs](https://myeventify.onrender.com/docs)
+
 ## Features
 
 - JWT authentication with short-lived access tokens and refresh-token rotation.
@@ -65,6 +67,8 @@ All versioned endpoints use the `/v1` prefix.
 | `GET` | `/v1/bookings/:id` | Booking owner or admin | Retrieve a booking |
 | `DELETE` | `/v1/bookings/:id` | Booking owner or admin | Cancel a booking |
 | `GET` | `/health` | Public | Check API and database health |
+| `GET` | `/docs` | Public | Open the interactive Swagger UI |
+| `GET` | `/openapi.json` | Public | Retrieve the machine-readable OpenAPI contract |
 
 Authenticated requests use:
 
@@ -73,6 +77,12 @@ Authorization: Bearer <access-token>
 ```
 
 `GET /v1/events` supports `page`, `limit`, `venue`, `from`, `to`, and `sort`. Sorting accepts `startsAt:asc` or `startsAt:desc`.
+
+## API Documentation
+
+With the API running locally, open [http://localhost:3000/docs](http://localhost:3000/docs) to explore the endpoints and try requests through Swagger UI. The underlying OpenAPI 3.1 contract is available at [http://localhost:3000/openapi.json](http://localhost:3000/openapi.json) for frontend tooling and client generation.
+
+After logging in, copy the returned `accessToken`, select **Authorize** in Swagger UI, and paste the token without adding the `Bearer` prefix. Swagger UI adds that prefix to protected requests automatically. The refresh endpoint uses the HttpOnly `refresh_token` cookie set by the login response.
 
 ## Local Setup
 
