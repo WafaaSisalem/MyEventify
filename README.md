@@ -1,8 +1,10 @@
 # Eventify
 
+[![CI](https://github.com/WafaaSisalem/MyEventify/actions/workflows/ci.yml/badge.svg)](https://github.com/WafaaSisalem/MyEventify/actions/workflows/ci.yml)
+
 Eventify is a RESTful event-booking API built with Node.js, Express, TypeScript, PostgreSQL, Prisma, Redis, and BullMQ. It provides secure authentication, role-based event management, concurrency-safe booking, automatic waitlisting, caching, rate limiting, and background job processing.
 
-**Live API:** [https://myeventify.onrender.com](https://myeventify.onrender.com)
+**API base URL:** `https://myeventify.onrender.com`
 
 **Health check:** [https://myeventify.onrender.com/health](https://myeventify.onrender.com/health)
 
@@ -25,10 +27,10 @@ Eventify is a RESTful event-booking API built with Node.js, Express, TypeScript,
 ```mermaid
 flowchart LR
     Client --> API[Express API]
-    API --> DB[(PostgreSQL)]
+    API -->|Prisma Client| DB[(PostgreSQL)]
     API --> Redis[Redis: cache, rate limits, and BullMQ queues]
     Redis --> Worker[BullMQ Worker]
-    Worker --> DB
+    Worker -->|Prisma Client| DB
     Worker --> Email[Email Delivery]
 ```
 
