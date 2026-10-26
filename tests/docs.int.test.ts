@@ -52,6 +52,7 @@ describe("API documentation", () => {
       "duplicateBooking",
       "alreadyWaitlisted",
       "fullRebooking",
+      "eventStarted",
     ]);
     expect(
       response.body.paths["/v1/events"].post.responses["500"].content[
@@ -66,4 +67,15 @@ describe("API documentation", () => {
     expect(response.text).toContain('id="swagger-ui"');
     expect(response.text).toContain("Eventify API Docs");
   });
+  it("documents booking start guards and bodyless repeated cancellation", async () => {
+    const { body } = await request(app).get("/openapi.json").expect(200);
+    const post = body.paths["/v1/bookings"].post;
+    const cancel = body.paths["/v1/bookings/{id}"].delete;
+    for (const operation of [post, cancel]) {
+      expect(operation.responses["409"].content["application/json"].examples.eventStarted.value)
+        .toEqual({ error: "Event has already started" });
+    }
+    expect(cancel.responses["204"]).not.toHaveProperty("content");
+  });
+
 });

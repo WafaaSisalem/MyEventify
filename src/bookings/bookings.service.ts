@@ -1,105 +1,75 @@
 import type { Booking } from "../generated/prisma/client.ts";
-import { prisma } from "../infra/db.ts";
 import { HttpError, ForbiddenError } from "../errors/http-error.ts";
 import * as bookingsRepo from "./bookings.repository.ts";
-import { emailQueue } from "../jobs/email.queue.ts";
-import { promotionQueue } from "../jobs/promotion.queue.ts";
+import { runSerializable } from "../infra/transaction.ts";
+import {
+  enqueueConfirmation,
+  enqueuePromotion,
+} from "../jobs/booking.enqueue.ts";
+
 export async function createBooking(
   eventId: string,
   userId: string,
 ): Promise<Booking> {
-  const MAX_RETRIES = 3;
-  let attempt = 0;
+  let booking: Booking;
+  try {
+    booking = await runSerializable(async (tx) => {
+      const event = await tx.event.findUnique({ where: { id: eventId } });
+      if (!event) {
+        throw new HttpError(404, "Event not found");
+      }
+      if (Date.now() >= event.startsAt.getTime()) {
+        throw new HttpError(409, "Event has already started");
+      }
+      const confirmedCount = await tx.booking.count({
+        where: { eventId, status: "CONFIRMED" },
+      });
+      const isFull = confirmedCount >= event.capacity;
+      const existingBooking = await tx.booking.findUnique({
+        where: { userId_eventId: { userId, eventId } },
+      });
 
-  while (attempt < MAX_RETRIES) {
-    try {
-      const booking = await prisma.$transaction(
-        async (tx) => {
-          // Read event directly from DB inside transaction
-          const event = await tx.event.findUnique({
-            where: { id: eventId },
-          });
-
-          if (!event) {
-            throw new HttpError(404, "Event not found");
-          }
-
-          const confirmedCount = await tx.booking.count({
-            where: { eventId, status: "CONFIRMED" },
-          });
-
-          const isFull = confirmedCount >= event.capacity;
-
-          const existingBooking = await tx.booking.findUnique({
-            where: { userId_eventId: { userId, eventId } },
-          });
-
-          if (existingBooking) {
-            if (existingBooking.status === "CANCELLED") {
-              if (isFull) {
-                throw new HttpError(409, "Event is full");
-              }
-              return await tx.booking.update({
-                where: { id: existingBooking.id },
-                data: { status: "CONFIRMED" },
-              });
-            } else if (existingBooking.status === "WAITLISTED") {
-              throw new HttpError(409, "User is already waitlisted");
-            }
-
-            // If CONFIRMED, attempt to create it anyway to trigger P2002 unique constraint violation
-            return await tx.booking.create({
-              data: { userId, eventId, status: "CONFIRMED" },
-            });
-          }
-
-          // No existing row
+      if (existingBooking) {
+        if (existingBooking.status === "CANCELLED") {
           if (isFull) {
-            return await tx.booking.create({
-              data: {
-                userId,
-                eventId,
-                status: "WAITLISTED",
-              },
-            });
+            throw new HttpError(409, "Event is full");
           }
-
-          return await tx.booking.create({
-            data: {
-              userId,
-              eventId,
-              status: "CONFIRMED",
-            },
+          return await tx.booking.update({
+            where: { id: existingBooking.id },
+            data: { status: "CONFIRMED" },
           });
-        },
-        { isolationLevel: "Serializable" },
-      );
+        } else if (existingBooking.status === "WAITLISTED") {
+          throw new HttpError(409, "User is already waitlisted");
+        }
 
-      // Transaction committed successfully
-      if (booking.status === "CONFIRMED") {
-        await emailQueue.add("confirmation", {
-          bookingId: booking.id,
+        // Existing CONFIRMED: preserve the database duplicate constraint.
+        return await tx.booking.create({
+          data: { userId, eventId, status: "CONFIRMED" },
         });
       }
 
-      return booking;
-    } catch (error: unknown) {
-      const err = error as { code?: string };
-      if (err.code === "P2002") {
-        throw new HttpError(409, "Duplicate booking");
+      if (isFull) {
+        return await tx.booking.create({
+          data: { userId, eventId, status: "WAITLISTED" },
+        });
       }
-      if (err.code === "P2034") {
-        attempt++;
-        if (attempt >= MAX_RETRIES) {
-          throw error;
-        }
-        continue;
-      }
-      throw error;
+
+      return await tx.booking.create({
+        data: { userId, eventId, status: "CONFIRMED" },
+      });
+    });
+  } catch (error: unknown) {
+    const err = error as { code?: string } | null | undefined;
+    if (err?.code === "P2002") {
+      throw new HttpError(409, "Duplicate booking");
     }
+    throw error;
   }
 
-  throw new Error("Transaction failed after max retries");
+  if (booking.status === "CONFIRMED") {
+    await enqueueConfirmation(booking.id, booking.eventId);
+  }
+  return booking;
 }
 
 export async function getBooking(
@@ -124,20 +94,45 @@ export async function deleteBooking(
   userId: string,
   userRole: string,
 ): Promise<Booking | null> {
-  const booking = await bookingsRepo.findById(id);
-  if (!booking) {
+  const result = await runSerializable(async (tx) => {
+    const record = await tx.booking.findUnique({
+      where: { id },
+      include: { event: { select: { startsAt: true } } },
+    });
+    if (!record) {
+      return null;
+    }
+
+    const { event, ...booking } = record;
+    if (userRole !== "ADMIN" && booking.userId !== userId) {
+      throw new ForbiddenError();
+    }
+    if (booking.status === "CANCELLED") {
+      return { booking, promote: false };
+    }
+    if (Date.now() >= event.startsAt.getTime()) {
+      throw new HttpError(409, "Event has already started");
+    }
+
+    const transition = await tx.booking.updateMany({
+      where: { id, status: booking.status },
+      data: { status: "CANCELLED" },
+    });
+    if (transition.count !== 1) {
+      throw new Error("Booking cancellation transition failed");
+    }
+
+    return {
+      booking: { ...booking, status: "CANCELLED" as const },
+      promote: booking.status === "CONFIRMED",
+    };
+  });
+
+  if (!result) {
     return null;
   }
-
-  if (userRole !== "ADMIN" && booking.userId !== userId) {
-    throw new ForbiddenError();
+  if (result.promote) {
+    await enqueuePromotion(result.booking.id, result.booking.eventId);
   }
-
-  const updatedBooking = await bookingsRepo.update(id, { status: "CANCELLED" });
-
-  if (booking.status === "CONFIRMED") {
-    await promotionQueue.add("promote", { eventId: booking.eventId });
-  }
-
-  return updatedBooking;
+  return result.booking;
 }
