@@ -625,7 +625,7 @@ registry.registerPath({
   operationId: "createBooking",
   summary: "Book a seat or join the waitlist",
   description:
-    "Creates a CONFIRMED booking when capacity is available, otherwise a WAITLISTED booking.",
+    "Creates a CONFIRMED booking when capacity is available, otherwise a WAITLISTED booking. Creation and restoration are rejected when server time reaches startsAt. A CANCELLED booking is restored as CONFIRMED only if capacity is available; otherwise it returns 409. Confirmation job handoff is best-effort after commit; enqueue failure does not undo the booking or change its 201 response.",
   security: [{ [bearerAuth.name]: [] }],
   request: {
     body: {
@@ -658,6 +658,10 @@ registry.registerPath({
       fullRebooking: {
         summary: "A cancelled booking cannot be restored because the event is full",
         value: { error: "Event is full" },
+      },
+      eventStarted: {
+        summary: "The event has reached its start time",
+        value: { error: "Event has already started" },
       },
     }),
     429: rateLimitError,
@@ -698,11 +702,14 @@ registry.registerPath({
   tags: ["Bookings"],
   operationId: "cancelBooking",
   summary: "Cancel a booking",
-  description: "Requires the booking owner or an ADMIN access token.",
+  description:
+    "Requires the booking owner or an ADMIN access token. Cancels an active booking only before startsAt. An already CANCELLED booking returns 204 without another update or promotion job, including after startsAt. Promotion job handoff is best-effort after commit; enqueue failure does not undo cancellation or change its 204 response.",
   security: [{ [bearerAuth.name]: [] }],
   request: { params: IdParameterSchema },
   responses: {
-    204: { description: "Booking cancelled." },
+    204: {
+      description: "Booking cancelled or already CANCELLED. No response body.",
+    },
     400: idValidationError,
     401: authError,
     403: forbiddenError,
@@ -710,6 +717,12 @@ registry.registerPath({
       bookingNotFound: {
         summary: "No booking exists for the supplied ID",
         value: { error: "Booking not found" },
+      },
+    }),
+    409: errorResponse("An active booking cannot be cancelled at or after event start.", {
+      eventStarted: {
+        summary: "The event has reached its start time",
+        value: { error: "Event has already started" },
       },
     }),
     500: internalServerError,

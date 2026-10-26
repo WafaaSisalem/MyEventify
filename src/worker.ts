@@ -7,6 +7,9 @@ import * as bookingRepo from "./bookings/bookings.repository.ts";
 import { mailer } from "./infra/mailer.ts";
 import { prisma } from "./infra/db.ts";
 import { emailQueue } from "./jobs/email.queue.ts";
+import { promotionQueue } from "./jobs/promotion.queue.ts";
+import { promoteWaitlistedBooking } from "./jobs/promotion.processor.ts";
+import { enqueueConfirmation } from "./jobs/booking.enqueue.ts";
 import { logger } from "./infra/logger.ts";
 import { registerWorkerShutdown } from "./infra/shutdown.ts";
 
@@ -44,56 +47,13 @@ const promotionWorker = new Worker<{ eventId: string }>(
     });
     jobLogger.info("processing waitlist promotion");
 
-    const promotedBookingId = await prisma.$transaction(
-      async (tx) => {
-        const event = await tx.event.findUnique({
-          where: { id: eventId },
-        });
-
-        if (!event) {
-          throw new UnrecoverableError(`event ${eventId} not found`);
-        }
-
-        const confirmedCount = await tx.booking.count({
-          where: { eventId, status: "CONFIRMED" },
-        });
-
-        jobLogger.debug(
-          { confirmedCount, capacity: event.capacity },
-          "checked event capacity",
-        );
-
-        if (confirmedCount >= event.capacity) {
-          jobLogger.info("event is full; no booking promoted");
-          return null; // Still full, do nothing
-        }
-
-        const oldestWaitlisted = await tx.booking.findFirst({
-          where: { eventId, status: "WAITLISTED" },
-          orderBy: { createdAt: "asc" },
-        });
-
-        if (!oldestWaitlisted) {
-          jobLogger.info("no waitlisted booking found");
-          return null; // No one to promote
-        }
-
-        jobLogger.info(
-          { bookingId: oldestWaitlisted.id },
-          "promoting waitlisted booking",
-        );
-        await tx.booking.update({
-          where: { id: oldestWaitlisted.id },
-          data: { status: "CONFIRMED" },
-        });
-
-        return oldestWaitlisted.id;
-      },
-      { isolationLevel: "Serializable" }
-    );
-
+    const promotedBookingId = await promoteWaitlistedBooking(eventId, jobLogger);
     if (promotedBookingId) {
-      await emailQueue.add("confirmation", { bookingId: promotedBookingId });
+      jobLogger.info(
+        { bookingId: promotedBookingId },
+        "promoted waitlisted booking",
+      );
+      await enqueueConfirmation(promotedBookingId, eventId, jobLogger);
     }
   },
   {
@@ -104,6 +64,7 @@ const promotionWorker = new Worker<{ eventId: string }>(
 
 registerWorkerShutdown([emailWorker, promotionWorker], [
   { name: "email queue", close: () => emailQueue.close() },
+  { name: "promotion queue", close: () => promotionQueue.close() },
   { name: "queue Redis", close: closeQueueConnection },
   { name: "Prisma", close: () => prisma.$disconnect() },
 ]);
